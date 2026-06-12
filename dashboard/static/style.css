@@ -6,16 +6,16 @@
   /* --- surfaces --- */
   --bg-void: #06090d;
   --bg-deep: #0a0f16;
-  --bg-panel: #0e141d;
-  --bg-panel-raised: #131b26;
+  --bg-panel: #121b28;          /* raised from #0e141d — panels now lift off the void */
+  --bg-panel-raised: #1a2535;   /* raised from #131b26 — top of the surface stack */
   --bg-line: #1c2733;
-  --border: #1e2a38;
-  --border-bright: #2c3d50;
+  --border: #2c3c52;            /* raised from #1e2a38 — 1.55:1 on bg-panel, edges read */
+  --border-bright: #3d5270;     /* raised from #2c3d50 — 2.18:1 on bg-panel */
 
   /* --- text --- */
-  --fg: #cdd8e4;
-  --fg-dim: #7689a0;
-  --fg-faint: #4f6173;
+  --fg: #e8eef6;                /* up from #cdd8e4 — 14.8:1 on bg-panel (body copy) */
+  --fg-dim: #a8bacd;            /* up from #7689a0 — 8.7:1 on bg-panel (labels/secondary) */
+  --fg-faint: #74879c;          /* up from #4f6173 — 4.7:1 on bg-panel (decorative only) */
 
   /* --- tier color system --- */
   --tier-low: #2fd17a;
@@ -173,7 +173,7 @@ body {
   transition: background-color var(--t-base) var(--t-ease),
               box-shadow var(--t-base) var(--t-ease);
 }
-.tg-conn-label { color: var(--fg-dim); font-size: 11px; }
+.tg-conn-label { color: var(--fg-dim); font-size: 12px; } /* status text: 12px floor + dim 8.7:1 */
 .tg-conn[data-state="connecting"] .tg-conn-dot { background: var(--tier-medium); }
 .tg-conn[data-state="open"] .tg-conn-dot {
   background: var(--tier-low);
@@ -321,8 +321,8 @@ body {
 }
 .tg-panel-age {
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--fg-faint);
+  font-size: 12px;          /* up from 11px — readable age/staleness metadata */
+  color: var(--fg-dim);     /* up from faint: 8.7:1 on bg-panel (controller reads this) */
   transition: color var(--t-base) var(--t-ease);
 }
 .tg-panel-age.is-stale {
@@ -349,11 +349,12 @@ body {
   margin: 10px 0 0;
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 3px 10px;
+  gap: 4px 10px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12px;        /* up from 11.5px — content data, readability floor */
+  line-height: 1.45;      /* dense tabular block needs breathing room */
 }
-.tg-panel-fields dt { color: var(--fg-faint); }
+.tg-panel-fields dt { color: var(--fg-dim); } /* labels must read: 8.7:1 on bg-panel (was faint ~2.3:1) */
 .tg-panel-fields dd { margin: 0; color: var(--fg); text-align: right; }
 
 /* tier color-coding (data-tier set by JS) */
@@ -443,7 +444,7 @@ body {
   padding: 2px;
 }
 .tg-advisory-empty {
-  color: var(--fg-faint);
+  color: var(--fg-dim); /* empty-state hint is informative copy: 8.7:1 (was faint) */
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.06em;
@@ -533,8 +534,8 @@ body {
 .tg-adv-summary { font-size: 13px; color: var(--fg); }
 .tg-adv-attn {
   font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--fg-dim);
+  font-size: 12px;        /* up from 11.5px — recommended_attention is read every glance */
+  color: var(--fg-dim);   /* now 8.7:1 on bg-panel via the new --fg-dim (was ~4:1) */
 }
 .tg-adv-foot { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
 
@@ -556,9 +557,9 @@ body {
   scrollbar-width: thin;
 }
 .tg-event-strip-empty {
-  color: var(--fg-faint);
+  color: var(--fg-dim); /* empty-state hint, informative copy: 8.7:1 (was faint) */
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;      /* up from 11px — readability floor for content */
   letter-spacing: 0.05em;
   padding-left: 4px;
   white-space: nowrap;
@@ -574,7 +575,7 @@ body {
   border-radius: 999px;
   background: var(--bg-panel);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;        /* up from 11px — chip summary is read content */
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: default;
@@ -975,8 +976,8 @@ body {
 .tg-conf-col[data-tier="UNKNOWN"]  .tg-conf-tier { color: var(--tier-unknown); }
 .tg-conf-src {
   font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--fg-faint);
+  font-size: 12px;        /* up from 10px — source attribution is read content */
+  color: var(--fg-dim);   /* up from faint: 8.7:1 on bg-panel */
 }
 .tg-conf-claim { font-size: 11.5px; color: var(--fg); }
 .tg-conf-divider {
@@ -1059,7 +1060,7 @@ body {
   font-family: var(--font-ui);
   font-size: 12px;
   line-height: 1.5;
-  color: var(--fg-dim);
+  color: var(--fg); /* popover body is explanatory prose: 13.2:1 on bg-raised (was dim) */
   animation: t-slide-up var(--t-fast) var(--t-ease);
 }
 .tg-info-pop-title {
