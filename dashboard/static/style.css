@@ -385,6 +385,35 @@ body {
 .tg-advisory-card[data-sev="HIGH"]     { border-left-color: var(--tier-high); }
 .tg-advisory-card[data-sev="CRITICAL"] { border-left-color: var(--tier-critical); }
 
+/* confirmed card fold-away (t-* discipline: timing vars, non-load-bearing) */
+.tg-advisory-card.is-collapsing {
+  flex-basis: 0;
+  min-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-left-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: flex-basis var(--t-slow) var(--t-ease),
+              opacity var(--t-base) var(--t-ease),
+              padding var(--t-slow) var(--t-ease);
+}
+
+/* "✓ N confirmed this shift" counter chip — pinned to the rail end */
+.tg-adv-confirmed-chip {
+  align-self: center;
+  flex: 0 0 auto;
+  order: 99;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--tier-low);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
 /* SURFACE_CONFLICT — special dual-color border */
 .tg-advisory-card.is-surface-conflict {
   border: 1px solid transparent;
