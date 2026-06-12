@@ -71,7 +71,7 @@ OpenSky ADS-B
 | Bo-Ru / Katherine 介面契約 | 🟡 v1.1 提案已出（命名統一＋bug 修正），待 Katherine 6/15 確認 |
 | 任務主導執行計畫（`plan.md`） | ✅ 已成檔：demo 驗收清單 D1–D10 + 四個波次 |
 | 專業依據文獻庫（`docs/references/`） | ✅ 13 份官方文件已下載驗證（FAA/NTSB/OIG/TRB/NASA）+ 知識地圖索引 |
-| 三個模組實作 | ⬜ 開發中 |
+| 三個模組實作 | ✅ 完成（120 tests / 97% cov，已上 GitHub private repo） |
 | 兩個 agent 實作 | ⬜ 開發中 |
 | 整合測試 | ⬜ 排定 6/19 |
 
