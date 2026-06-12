@@ -4,14 +4,21 @@
 // the strip auto-scrolls to it. Capped at MAX_CHIPS; oldest drop off the left.
 //
 // shift_event payload: { timestamp: ISO8601Z, kind, summary, ref|null }
-// kind ∈ tier_change | advisory | briefing | airport_switch
+// kind ∈ tier_change | advisory | briefing | airport_switch | confirm | dismiss
 // Per-kind dot color is owned by CSS via data-kind (see style.css).
 
 const MAX_CHIPS = 50;
 const SUMMARY_MAX = 48; // chars before ellipsis on the inline label
 
 // kinds we color explicitly; anything else falls back to a neutral dot.
-const KNOWN_KINDS = new Set(["tier_change", "advisory", "briefing", "airport_switch"]);
+const KNOWN_KINDS = new Set([
+  "tier_change",
+  "advisory",
+  "briefing",
+  "airport_switch",
+  "confirm",
+  "dismiss",
+]);
 
 export function createEventStrip(stripEl, emptyEl) {
   const chips = []; // chip elements, oldest-first (matches DOM left→right order)

@@ -3,6 +3,7 @@
 Covers:
   - GET /health (redis up / down)
   - POST /confirm idempotency (repeat click returns the original timestamp)
+  - POST /dismiss idempotency + the confirm/dismiss shift-event XADDs
   - SSE cache replay: a new client is seeded with the last message per type
   - bridge dispatch caches and fans out to registered clients
 """
@@ -16,7 +17,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from dashboard.bridge import PubSubBridge, SSEMessage
-from dashboard.server import CONFIRMED_KEY_PREFIX, create_app
+from dashboard.server import (
+    CONFIRMED_KEY_PREFIX,
+    DISMISSED_KEY_PREFIX,
+    create_app,
+)
+from dashboard.shift_stream import (
+    KIND_CONFIRM,
+    KIND_DISMISS,
+    read_recent,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +82,56 @@ class TestConfirm:
         second = client.post("/confirm/ADV-0002").json()
         # Repeat click returns the original timestamp, not a new one
         assert first["confirmed_at"] == second["confirmed_at"]
+
+    def test_confirm_xadds_one_shift_event(self, client):
+        client.post("/confirm/ADV-0003")
+        events = [
+            e for e in read_recent(client.fake_redis) if e["kind"] == KIND_CONFIRM
+        ]
+        assert len(events) == 1
+        assert events[0]["ref"] == "ADV-0003"
+        assert events[0]["summary"] == "Advisory ADV-0003 confirmed by controller"
+
+    def test_confirm_repeat_does_not_duplicate_shift_event(self, client):
+        client.post("/confirm/ADV-0004")
+        client.post("/confirm/ADV-0004")
+        events = [
+            e for e in read_recent(client.fake_redis) if e["kind"] == KIND_CONFIRM
+        ]
+        assert len(events) == 1
+
+
+class TestDismiss:
+    def test_dismiss_writes_key_and_returns_timestamp(self, client):
+        resp = client.post("/dismiss/ADV-0010")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["advisory_id"] == "ADV-0010"
+        assert body["dismissed_at"]  # non-empty ISO string
+        stored = client.fake_redis.get(f"{DISMISSED_KEY_PREFIX}ADV-0010")
+        assert stored == body["dismissed_at"]
+
+    def test_dismiss_is_idempotent(self, client):
+        first = client.post("/dismiss/ADV-0011").json()
+        second = client.post("/dismiss/ADV-0011").json()
+        assert first["dismissed_at"] == second["dismissed_at"]
+
+    def test_dismiss_xadds_one_shift_event(self, client):
+        client.post("/dismiss/ADV-0012")
+        events = [
+            e for e in read_recent(client.fake_redis) if e["kind"] == KIND_DISMISS
+        ]
+        assert len(events) == 1
+        assert events[0]["ref"] == "ADV-0012"
+        assert events[0]["summary"] == "Advisory ADV-0012 dismissed by controller"
+
+    def test_dismiss_repeat_does_not_duplicate_shift_event(self, client):
+        client.post("/dismiss/ADV-0013")
+        client.post("/dismiss/ADV-0013")
+        events = [
+            e for e in read_recent(client.fake_redis) if e["kind"] == KIND_DISMISS
+        ]
+        assert len(events) == 1
 
 
 # ---------------------------------------------------------------------------

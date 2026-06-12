@@ -1,13 +1,15 @@
 // advisory.js — advisory rail: ESCALATE cards + confirm, SURFACE_CONFLICT styling.
 // SUPPRESS advisories are never displayed.
 
-import { confirmAdvisory } from "./confirm.js";
+import { confirmAdvisory, dismissAdvisory } from "./confirm.js";
 import { safeTier } from "./format.js";
 
 // Confirmed cards linger briefly (so the ✓ is visible), then fold into the
-// "confirmed this shift" counter. Removal runs on a timer, not transitionend —
+// shift-decision counter. Removal runs on a timer, not transitionend —
 // animation is never load-bearing.
 const COLLAPSE_DELAY_MS = 4000;
+// Dismissed cards fold away faster: a rejection is acknowledged, not savored.
+const DISMISS_COLLAPSE_DELAY_MS = 1500;
 const COLLAPSE_ANIM_MS = 450;
 // Unconfirmed cap: the mock publishes on a fixed timer; real Katherine is
 // event-driven. Oldest cards drop out when the rail overflows.
@@ -16,6 +18,7 @@ const MAX_CARDS = 6;
 export function createAdvisoryRail(railEl, emptyEl) {
   const cards = new Map(); // advisory_id -> card element
   let confirmedCount = 0;
+  let dismissedCount = 0;
 
   const chip = document.createElement("div");
   chip.className = "tg-adv-confirmed-chip";
@@ -26,19 +29,31 @@ export function createAdvisoryRail(railEl, emptyEl) {
     if (emptyEl) emptyEl.style.display = cards.size === 0 ? "" : "none";
   }
 
-  function bumpConfirmedChip() {
-    confirmedCount += 1;
-    chip.textContent = `✓ ${confirmedCount} confirmed this shift`;
+  // Chip shows whichever counts are non-zero: "✓ N confirmed · ✕ M dismissed".
+  // Each half is dropped when its count is 0; if both are 0 the chip hides.
+  function refreshDecisionChip() {
+    const parts = [];
+    if (confirmedCount > 0) parts.push(`✓ ${confirmedCount} confirmed`);
+    if (dismissedCount > 0) parts.push(`✕ ${dismissedCount} dismissed`);
+    if (parts.length === 0) {
+      chip.style.display = "none";
+      return;
+    }
+    chip.textContent = parts.join(" · ");
     chip.style.display = "";
   }
 
-  function collapseCard(id, card) {
+  // `decision` ∈ {"confirm", "dismiss"} — drives which counter the folded card
+  // feeds into.
+  function collapseCard(id, card, decision) {
     if (!card.isConnected) return;
     card.classList.add("is-collapsing");
     setTimeout(() => {
       card.remove();
       if (id) cards.delete(id);
-      bumpConfirmedChip();
+      if (decision === "dismiss") dismissedCount += 1;
+      else confirmedCount += 1;
+      refreshDecisionChip();
       refreshEmpty();
     }, COLLAPSE_ANIM_MS);
   }
@@ -66,40 +81,86 @@ export function createAdvisoryRail(railEl, emptyEl) {
       <div class="tg-adv-attn">${escapeHtml(adv.recommended_attention || "")}</div>
       <div class="tg-adv-foot">
         <button class="tg-confirm-btn" type="button">Confirm</button>
+        <button class="tg-dismiss-btn" type="button">Dismiss</button>
       </div>
     `;
 
-    const btn = card.querySelector(".tg-confirm-btn");
+    const confirmBtn = card.querySelector(".tg-confirm-btn");
+    const dismissBtn = card.querySelector(".tg-dismiss-btn");
     const foot = card.querySelector(".tg-adv-foot");
-    btn.addEventListener("click", () => handleConfirm(adv.advisory_id, btn, foot, card));
+    const ctx = { confirmBtn, dismissBtn, foot, card, id: adv.advisory_id };
+    confirmBtn.addEventListener("click", () => handleConfirm(ctx));
+    dismissBtn.addEventListener("click", () => handleDismiss(ctx));
 
     return card;
   }
 
-  async function handleConfirm(advisoryId, btn, foot, card) {
-    if (btn.classList.contains("is-confirmed")) return;
-    btn.disabled = true;
-    btn.classList.add("is-pending");
-    btn.textContent = "Confirming…";
+  // Once either decision lands, both buttons lock — a card is confirmed XOR
+  // dismissed, never both.
+  function lockButtons(ctx) {
+    ctx.confirmBtn.disabled = true;
+    ctx.dismissBtn.disabled = true;
+  }
+
+  function decided(ctx) {
+    return (
+      ctx.confirmBtn.classList.contains("is-confirmed") ||
+      ctx.dismissBtn.classList.contains("is-dismissed")
+    );
+  }
+
+  async function handleConfirm(ctx) {
+    if (decided(ctx)) return;
+    lockButtons(ctx);
+    ctx.confirmBtn.classList.add("is-pending");
+    ctx.confirmBtn.textContent = "Confirming…";
     try {
-      const res = await confirmAdvisory(advisoryId);
-      btn.classList.remove("is-pending");
-      btn.classList.add("is-confirmed");
-      btn.textContent = "✓ Confirmed";
+      const res = await confirmAdvisory(ctx.id);
+      ctx.confirmBtn.classList.remove("is-pending");
+      ctx.confirmBtn.classList.add("is-confirmed");
+      ctx.confirmBtn.textContent = "✓ Confirmed";
       const ts = formatTs(res && res.confirmed_at);
       if (ts) {
         const span = document.createElement("span");
         span.className = "tg-confirm-ts";
         span.textContent = ts;
-        foot.appendChild(span);
+        ctx.foot.appendChild(span);
       }
-      setTimeout(() => collapseCard(advisoryId, card), COLLAPSE_DELAY_MS);
+      setTimeout(() => collapseCard(ctx.id, ctx.card, "confirm"), COLLAPSE_DELAY_MS);
     } catch (err) {
       console.error("confirm failed", err);
-      btn.classList.remove("is-pending");
-      btn.classList.add("is-error");
-      btn.textContent = "Retry confirm";
-      btn.disabled = false;
+      ctx.confirmBtn.classList.remove("is-pending");
+      ctx.confirmBtn.classList.add("is-error");
+      ctx.confirmBtn.textContent = "Retry confirm";
+      // re-open both so the controller can retry or switch to dismiss
+      ctx.confirmBtn.disabled = false;
+      ctx.dismissBtn.disabled = false;
+    }
+  }
+
+  async function handleDismiss(ctx) {
+    if (decided(ctx)) return;
+    lockButtons(ctx);
+    ctx.dismissBtn.classList.add("is-pending");
+    ctx.dismissBtn.textContent = "Dismissing…";
+    try {
+      await dismissAdvisory(ctx.id);
+      ctx.dismissBtn.classList.remove("is-pending");
+      ctx.dismissBtn.classList.add("is-dismissed");
+      ctx.dismissBtn.textContent = "✕ Dismissed";
+      // card immediately reads as rejected (dimmed, desaturated), then folds
+      ctx.card.classList.add("is-dismissed");
+      setTimeout(
+        () => collapseCard(ctx.id, ctx.card, "dismiss"),
+        DISMISS_COLLAPSE_DELAY_MS,
+      );
+    } catch (err) {
+      console.error("dismiss failed", err);
+      ctx.dismissBtn.classList.remove("is-pending");
+      ctx.dismissBtn.classList.add("is-error");
+      ctx.dismissBtn.textContent = "Retry dismiss";
+      ctx.confirmBtn.disabled = false;
+      ctx.dismissBtn.disabled = false;
     }
   }
 

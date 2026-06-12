@@ -19,6 +19,11 @@ Interface contract (frozen with the frontend agent):
   POST /confirm/{advisory_id}  → SET towerguard:confirmed:{id} <ISO8601 UTC>,
                                  idempotent (returns the existing timestamp on
                                  repeat). Returns {"advisory_id", "confirmed_at"}.
+                                 Also XADDs a confirm shift event.
+  POST /dismiss/{advisory_id}  → SET towerguard:dismissed:{id} <ISO8601 UTC>,
+                                 idempotent (returns the existing timestamp on
+                                 repeat). Returns {"advisory_id", "dismissed_at"}.
+                                 Also XADDs a dismiss shift event.
   GET  /lineage                → docs/lineage.md as text/markdown; 404 if absent.
   GET  /health                 → {"status": "ok", "redis": bool}
 
@@ -40,12 +45,14 @@ from sse_starlette.sse import EventSourceResponse
 
 import config
 from dashboard.bridge import PubSubBridge
+from dashboard.shift_stream import KIND_CONFIRM, KIND_DISMISS, xadd_shift_event
 from dashboard.topics import SELECTED_AIRPORT_KEY
 
 logger = logging.getLogger(__name__)
 
-# Key prefix for the persisted confirmation timestamps (contact.md §4).
+# Key prefixes for the persisted human-in-the-loop decisions (contact.md §4).
 CONFIRMED_KEY_PREFIX = "towerguard:confirmed:"
+DISMISSED_KEY_PREFIX = "towerguard:dismissed:"
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _INDEX_HTML = _STATIC_DIR / "index.html"
@@ -170,15 +177,48 @@ def create_app() -> FastAPI:
         """Persist a controller confirmation; idempotent on repeat clicks.
 
         Uses SET NX so the first click writes "now" and repeat clicks return the
-        already-stored timestamp instead of overwriting it.
+        already-stored timestamp instead of overwriting it. The first write also
+        appends a confirm shift event so the decision shows in the shift log.
         """
         redis_client: redis.Redis = app.state.redis
         key = f"{CONFIRMED_KEY_PREFIX}{advisory_id}"
         now_iso = _utc_now_iso()
         # nx=True → only sets if absent; returns None if the key already existed.
         created = redis_client.set(key, now_iso, nx=True)
+        if created:
+            xadd_shift_event(
+                redis_client,
+                kind=KIND_CONFIRM,
+                summary=f"Advisory {advisory_id} confirmed by controller",
+                ref=advisory_id,
+                timestamp=now_iso,
+            )
         confirmed_at = now_iso if created else redis_client.get(key)
         return {"advisory_id": advisory_id, "confirmed_at": confirmed_at}
+
+    @app.post("/dismiss/{advisory_id}")
+    async def dismiss(advisory_id: str) -> dict:
+        """Persist a controller dismissal; idempotent on repeat clicks.
+
+        Human-in-the-loop is not just "confirm": the controller may reject the
+        escalation. Mirrors /confirm — SET NX so the first click writes "now" and
+        repeats return the stored timestamp, and the first write appends a dismiss
+        shift event for the relief-briefing narrative.
+        """
+        redis_client: redis.Redis = app.state.redis
+        key = f"{DISMISSED_KEY_PREFIX}{advisory_id}"
+        now_iso = _utc_now_iso()
+        created = redis_client.set(key, now_iso, nx=True)
+        if created:
+            xadd_shift_event(
+                redis_client,
+                kind=KIND_DISMISS,
+                summary=f"Advisory {advisory_id} dismissed by controller",
+                ref=advisory_id,
+                timestamp=now_iso,
+            )
+        dismissed_at = now_iso if created else redis_client.get(key)
+        return {"advisory_id": advisory_id, "dismissed_at": dismissed_at}
 
     @app.get("/health")
     async def health() -> dict:

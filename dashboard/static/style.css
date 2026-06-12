@@ -598,6 +598,13 @@ body {
 .tg-event-chip[data-kind="airport_switch"] .tg-event-chip-dot {
   background: var(--fg-faint);
 }
+.tg-event-chip[data-kind="confirm"] .tg-event-chip-dot {
+  background: var(--tier-low);
+  box-shadow: 0 0 5px var(--tier-low-glow);
+}
+.tg-event-chip[data-kind="dismiss"] .tg-event-chip-dot {
+  background: var(--fg-faint);
+}
 
 /* ============================================================
    CONFIRM BUTTON (shared by advisory + briefing)
@@ -634,6 +641,51 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--tier-low);
+}
+
+/* ------------------------------------------------------------
+   DISMISS BUTTON (advisory rail only) — quieter than Confirm:
+   transparent body, faint border, no lift. Confirm is the loud
+   primary action; Dismiss is the deliberate quiet alternative.
+   ------------------------------------------------------------ */
+.tg-dismiss-btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--t-ease),
+              border-color var(--t-fast) var(--t-ease),
+              color var(--t-fast) var(--t-ease);
+}
+.tg-dismiss-btn:hover {
+  color: var(--tier-high);
+  border-color: var(--tier-high);
+  background: var(--tier-high-glow);
+}
+.tg-dismiss-btn:disabled { cursor: default; opacity: 0.9; }
+.tg-dismiss-btn.is-pending { opacity: 0.6; cursor: progress; }
+.tg-dismiss-btn.is-dismissed {
+  color: var(--fg-faint);
+  border-color: var(--fg-faint);
+  background: transparent;
+}
+.tg-dismiss-btn.is-error {
+  color: var(--tier-high);
+  border-color: var(--tier-high);
+}
+
+/* dismissed card reads as rejected — drained of color, dimmed — before it
+   folds away via .is-collapsing (timing vars only; non-load-bearing). */
+.tg-advisory-card.is-dismissed {
+  filter: grayscale(1);
+  opacity: 0.5;
+  transition: filter var(--t-base) var(--t-ease),
+              opacity var(--t-base) var(--t-ease);
 }
 
 /* ============================================================

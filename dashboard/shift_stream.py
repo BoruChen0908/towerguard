@@ -7,10 +7,10 @@ shape with the frontend agent:
     {"timestamp": "<ISO8601Z>", "kind": "<str>", "summary": "<str>",
      "ref": "<str|null>"}
 
-`kind` ∈ {tier_change, advisory, briefing, airport_switch}. A null `ref` is
-written as the literal string ``"null"`` on the wire (Redis Stream fields are
-strings) and decoded back to ``None`` on read, so the SSE payload matches the
-JSON contract exactly.
+`kind` ∈ {tier_change, advisory, briefing, airport_switch, confirm, dismiss}. A
+null `ref` is written as the literal string ``"null"`` on the wire (Redis Stream
+fields are strings) and decoded back to ``None`` on read, so the SSE payload
+matches the JSON contract exactly.
 """
 
 from datetime import datetime, timezone
@@ -34,6 +34,10 @@ KIND_TIER_CHANGE = "tier_change"
 KIND_ADVISORY = "advisory"
 KIND_BRIEFING = "briefing"
 KIND_AIRPORT_SWITCH = "airport_switch"
+# Human-in-the-loop decisions on an advisory: the controller either signs off
+# (confirm) or rejects the escalation (dismiss). Both feed the shift narrative.
+KIND_CONFIRM = "confirm"
+KIND_DISMISS = "dismiss"
 
 # Sentinel written for a null ref (stream fields cannot be None).
 _NULL_REF = "null"
