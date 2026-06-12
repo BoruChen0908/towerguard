@@ -6,3 +6,7 @@ pytest-cov
 python-dotenv
 ruff
 pypdf
+fastapi
+uvicorn[standard]
+sse-starlette
+httpx

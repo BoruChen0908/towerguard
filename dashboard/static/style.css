@@ -1,0 +1,630 @@
+/* ============================================================
+   TowerGuard — ops-room dark theme
+   ============================================================ */
+
+:root {
+  /* --- surfaces --- */
+  --bg-void: #06090d;
+  --bg-deep: #0a0f16;
+  --bg-panel: #0e141d;
+  --bg-panel-raised: #131b26;
+  --bg-line: #1c2733;
+  --border: #1e2a38;
+  --border-bright: #2c3d50;
+
+  /* --- text --- */
+  --fg: #cdd8e4;
+  --fg-dim: #7689a0;
+  --fg-faint: #4f6173;
+
+  /* --- tier color system --- */
+  --tier-low: #2fd17a;
+  --tier-medium: #f2c94c;
+  --tier-high: #f2994a;
+  --tier-critical: #ff4d4d;
+  --tier-unknown: #9b8cc4;
+
+  --tier-low-glow: rgba(47, 209, 122, 0.18);
+  --tier-medium-glow: rgba(242, 201, 76, 0.18);
+  --tier-high-glow: rgba(242, 153, 74, 0.20);
+  --tier-critical-glow: rgba(255, 77, 77, 0.24);
+  --tier-unknown-glow: rgba(155, 140, 196, 0.18);
+
+  /* conflict / alert accents */
+  --conflict-red: #ff4d4d;
+  --accent: #4aa8ff;
+
+  /* --- type --- */
+  --font-mono: "SFMono-Regular", "JetBrains Mono", "Consolas", "Roboto Mono", ui-monospace, monospace;
+  --font-ui: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  /* --- layout --- */
+  --header-h: 38px;
+  --footer-h: 30px;
+  --gap: 10px;
+
+  /* === ANIMATION DISCIPLINE (transitions.dev style) ===
+     All transition timing lives here. Components reference these
+     vars only; they never hard-code durations. */
+  --t-fast: 140ms;
+  --t-base: 240ms;
+  --t-slow: 420ms;
+  --t-ease: cubic-bezier(0.22, 0.61, 0.36, 1);     /* ease-out-ish */
+  --t-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-spring: cubic-bezier(0.34, 1.3, 0.5, 1);      /* slight overshoot */
+}
+
+/* ---------- reset ---------- */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+
+body {
+  background:
+    radial-gradient(1200px 600px at 70% -10%, #0d1622 0%, transparent 60%),
+    var(--bg-void);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* tabular figures everywhere numbers matter */
+.tg-clock, .tg-panel-score, .tg-panel-age, .tg-panel-tier,
+.tg-panel-fields, .tg-advisory-card { font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.tg-header {
+  height: var(--header-h);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px;
+  background: linear-gradient(180deg, #0c131c, #080d13);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+.tg-logo {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--fg);
+}
+.tg-logo-accent { color: var(--accent); }
+.tg-airport {
+  color: var(--fg-dim);
+  border: 1px solid var(--border-bright);
+  border-radius: 3px;
+  padding: 2px 7px;
+  letter-spacing: 0.18em;
+}
+.tg-header-spacer { flex: 1 1 auto; }
+.tg-clock { color: var(--fg); letter-spacing: 0.08em; }
+.tg-clock-z { color: var(--fg-faint); margin-left: 2px; }
+
+.tg-conn { display: flex; align-items: center; gap: 7px; }
+.tg-conn-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--fg-faint);
+  transition: background-color var(--t-base) var(--t-ease),
+              box-shadow var(--t-base) var(--t-ease);
+}
+.tg-conn-label { color: var(--fg-dim); font-size: 11px; }
+.tg-conn[data-state="connecting"] .tg-conn-dot { background: var(--tier-medium); }
+.tg-conn[data-state="open"] .tg-conn-dot {
+  background: var(--tier-low);
+  box-shadow: 0 0 8px var(--tier-low-glow);
+}
+.tg-conn[data-state="closed"] .tg-conn-dot {
+  background: var(--conflict-red);
+  box-shadow: 0 0 8px var(--tier-critical-glow);
+  animation: t-pulse 1.6s var(--t-ease-in-out) infinite;
+}
+
+/* ============================================================
+   DEGRADED BANNER
+   ============================================================ */
+.tg-degraded-banner {
+  flex: 0 0 auto;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(155, 140, 196, 0.16) 0 12px,
+    rgba(155, 140, 196, 0.06) 12px 24px
+  );
+  border-bottom: 1px solid var(--tier-unknown);
+  color: #d7cef0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  padding: 6px;
+  animation: t-pulse 2.4s var(--t-ease-in-out) infinite;
+}
+.tg-degraded-icon { margin-right: 8px; }
+
+/* ============================================================
+   MAIN GRID
+   ============================================================ */
+.tg-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "map panels"
+    "advisory advisory";
+  gap: var(--gap);
+  padding: var(--gap);
+}
+
+/* ---- map ---- */
+.tg-map-wrap {
+  grid-area: map;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #05080c;
+}
+#map { position: absolute; inset: 0; background: #05080c; }
+
+/* dark leaflet attribution */
+.leaflet-container { background: #05080c; }
+.leaflet-control-attribution {
+  background: rgba(8, 13, 19, 0.7) !important;
+  color: var(--fg-faint) !important;
+}
+.leaflet-control-attribution a { color: var(--fg-dim) !important; }
+.leaflet-bar a {
+  background: var(--bg-panel) !important;
+  color: var(--fg) !important;
+  border-color: var(--border) !important;
+}
+
+/* ---- aircraft markers ---- */
+.tg-ac {
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 14px solid var(--accent);
+  filter: drop-shadow(0 0 3px rgba(74, 168, 255, 0.5));
+  transform-origin: 50% 70%;
+  transition: border-bottom-color var(--t-base) var(--t-ease);
+}
+.tg-ac.is-conflict {
+  border-bottom-color: var(--conflict-red);
+  filter: drop-shadow(0 0 5px var(--tier-critical-glow));
+}
+.tg-ac-tooltip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-panel-raised) !important;
+  color: var(--fg) !important;
+  border: 1px solid var(--border-bright) !important;
+  border-radius: 4px;
+}
+.tg-ac-tooltip::before { display: none; }
+.tg-ac-cs { color: var(--accent); font-weight: 700; }
+
+/* ============================================================
+   SIGNAL PANELS
+   ============================================================ */
+.tg-panels {
+  grid-area: panels;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+  overflow: auto;
+}
+.tg-panel {
+  flex: 1 1 0;
+  background: linear-gradient(180deg, var(--bg-panel-raised), var(--bg-panel));
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--fg-faint);
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  /* tier transitions: border + glow, never a hard cut */
+  transition: border-left-color var(--t-base) var(--t-ease),
+              box-shadow var(--t-base) var(--t-ease),
+              background var(--t-base) var(--t-ease);
+}
+.tg-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.tg-panel-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--fg-dim);
+}
+.tg-panel-age {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-faint);
+  transition: color var(--t-base) var(--t-ease);
+}
+.tg-panel-age.is-stale {
+  color: var(--tier-high);
+  text-decoration: line-through;
+}
+.tg-panel-tier {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--fg-dim);
+  transition: color var(--t-base) var(--t-ease);
+}
+.tg-panel-score {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--fg);
+  margin-top: 2px;
+  min-height: 16px;
+}
+.tg-panel-fields {
+  margin: 10px 0 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.tg-panel-fields dt { color: var(--fg-faint); }
+.tg-panel-fields dd { margin: 0; color: var(--fg); text-align: right; }
+
+/* tier color-coding (data-tier set by JS) */
+.tg-panel[data-tier="LOW"]      { border-left-color: var(--tier-low); }
+.tg-panel[data-tier="LOW"]      .tg-panel-tier { color: var(--tier-low); }
+.tg-panel[data-tier="MEDIUM"]   { border-left-color: var(--tier-medium); }
+.tg-panel[data-tier="MEDIUM"]   .tg-panel-tier { color: var(--tier-medium); }
+.tg-panel[data-tier="HIGH"]     { border-left-color: var(--tier-high); }
+.tg-panel[data-tier="HIGH"]     .tg-panel-tier { color: var(--tier-high); }
+.tg-panel[data-tier="CRITICAL"] {
+  border-left-color: var(--tier-critical);
+  box-shadow: inset 0 0 22px var(--tier-critical-glow);
+}
+.tg-panel[data-tier="CRITICAL"] .tg-panel-tier {
+  color: var(--tier-critical);
+  animation: t-pulse 1.8s var(--t-ease-in-out) infinite;
+}
+
+/* DEGRADED state (tier UNKNOWN) — striped bg + pulsing border, NEVER green */
+.tg-panel[data-tier="UNKNOWN"] {
+  border-left-color: var(--tier-unknown);
+  border-color: var(--tier-unknown);
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(155, 140, 196, 0.10) 0 10px,
+      rgba(155, 140, 196, 0.03) 10px 20px
+    ),
+    var(--bg-panel);
+  animation: t-degraded-edge 2.2s var(--t-ease-in-out) infinite;
+}
+.tg-panel[data-tier="UNKNOWN"] .tg-panel-tier { color: var(--tier-unknown); }
+.tg-panel[data-tier="UNKNOWN"] .tg-panel-score::after {
+  content: "DEGRADED — sensor feed unavailable";
+  color: var(--tier-unknown);
+  font-size: 11px;
+}
+
+/* score-update micro-highlight (added/removed by JS) */
+.tg-panel-score.t-bump,
+.tg-panel-fields dd.t-bump {
+  animation: t-highlight var(--t-slow) var(--t-ease);
+}
+
+/* ============================================================
+   ADVISORY RAIL
+   ============================================================ */
+.tg-advisory-rail {
+  grid-area: advisory;
+  display: flex;
+  gap: var(--gap);
+  align-items: stretch;
+  min-height: 64px;
+  max-height: 150px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px;
+}
+.tg-advisory-empty {
+  color: var(--fg-faint);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  align-self: center;
+  padding-left: 6px;
+}
+.tg-advisory-card {
+  flex: 0 0 360px;
+  background: linear-gradient(180deg, var(--bg-panel-raised), var(--bg-panel));
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--fg-faint);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* slide-in entrance */
+}
+.tg-advisory-card.t-slide-in {
+  animation: t-slide-up var(--t-slow) var(--t-spring);
+}
+/* severity color edge */
+.tg-advisory-card[data-sev="LOW"]      { border-left-color: var(--tier-low); }
+.tg-advisory-card[data-sev="MEDIUM"]   { border-left-color: var(--tier-medium); }
+.tg-advisory-card[data-sev="HIGH"]     { border-left-color: var(--tier-high); }
+.tg-advisory-card[data-sev="CRITICAL"] { border-left-color: var(--tier-critical); }
+
+/* SURFACE_CONFLICT — special dual-color border */
+.tg-advisory-card.is-surface-conflict {
+  border: 1px solid transparent;
+  border-image: linear-gradient(120deg, var(--tier-critical), var(--accent)) 1;
+  border-left-width: 4px;
+}
+
+.tg-adv-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.tg-adv-action {
+  letter-spacing: 0.1em;
+  color: var(--fg);
+  font-weight: 700;
+}
+.tg-adv-id { color: var(--fg-faint); }
+.tg-adv-badge {
+  margin-left: auto;
+  background: var(--tier-critical-glow);
+  color: var(--tier-critical);
+  border: 1px solid var(--tier-critical);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+.tg-adv-summary { font-size: 13px; color: var(--fg); }
+.tg-adv-attn {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--fg-dim);
+}
+.tg-adv-foot { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+
+/* ============================================================
+   CONFIRM BUTTON (shared by advisory + briefing)
+   ============================================================ */
+.tg-confirm-btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--fg);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--t-ease),
+              border-color var(--t-fast) var(--t-ease),
+              color var(--t-fast) var(--t-ease),
+              transform var(--t-fast) var(--t-spring);
+}
+.tg-confirm-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+.tg-confirm-btn:active { transform: translateY(0); }
+.tg-confirm-btn:disabled { cursor: default; opacity: 0.9; }
+.tg-confirm-btn.is-pending { opacity: 0.6; cursor: progress; }
+.tg-confirm-btn.is-confirmed {
+  color: var(--tier-low);
+  border-color: var(--tier-low);
+  background: var(--tier-low-glow);
+}
+.tg-confirm-btn.is-error {
+  color: var(--tier-high);
+  border-color: var(--tier-high);
+}
+.tg-confirm-ts {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--tier-low);
+}
+
+/* ============================================================
+   BRIEFING — launch button + slide-out panel
+   ============================================================ */
+.tg-briefing-btn {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--footer-h) + 14px);
+  z-index: 900;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #cfe6ff;
+  background: linear-gradient(180deg, #133349, #0e2433);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 9px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  box-shadow: 0 0 14px rgba(74, 168, 255, 0.22);
+  transition: transform var(--t-fast) var(--t-spring),
+              box-shadow var(--t-base) var(--t-ease);
+}
+.tg-briefing-btn:hover { transform: translateY(-2px); }
+.tg-briefing-btn.t-appear { animation: t-slide-up var(--t-slow) var(--t-spring); }
+.tg-briefing-btn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: t-pulse 1.6s var(--t-ease-in-out) infinite;
+}
+
+.tg-briefing-scrim {
+  position: fixed; inset: 0; z-index: 950;
+  background: rgba(2, 5, 9, 0.55);
+  opacity: 0;
+  transition: opacity var(--t-base) var(--t-ease);
+}
+.tg-briefing-scrim.is-open { opacity: 1; }
+
+.tg-briefing-panel {
+  position: fixed;
+  top: 0; right: 0; bottom: 0; z-index: 960;
+  width: min(560px, 92vw);
+  background: var(--bg-deep);
+  border-left: 1px solid var(--border-bright);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--t-slow) var(--t-ease);
+}
+.tg-briefing-panel.is-open { transform: translateX(0); }
+.tg-briefing-panel-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.tg-briefing-panel-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+}
+.tg-briefing-close {
+  background: none; border: none; color: var(--fg-dim);
+  font-size: 22px; line-height: 1; cursor: pointer;
+  transition: color var(--t-fast) var(--t-ease);
+}
+.tg-briefing-close:hover { color: var(--fg); }
+.tg-briefing-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 18px 22px;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.tg-briefing-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+
+/* markdown styling inside briefing */
+.tg-briefing-body h1, .tg-briefing-body h2 {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.tg-briefing-body h2 { font-size: 15px; margin-top: 18px; }
+.tg-briefing-body h3 { font-size: 13px; color: var(--fg); margin-top: 14px; }
+.tg-briefing-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.tg-briefing-body em { color: var(--fg-dim); }
+.tg-briefing-body code {
+  font-family: var(--font-mono);
+  background: var(--bg-panel);
+  padding: 1px 5px; border-radius: 3px;
+}
+.tg-briefing-body ul, .tg-briefing-body ol { padding-left: 20px; }
+
+/* ============================================================
+   DISCLAIMER FOOTER
+   ============================================================ */
+.tg-disclaimer {
+  height: var(--footer-h);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #080d13;
+  border-top: 1px solid var(--border);
+  color: var(--tier-high);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 0 12px;
+}
+
+/* ============================================================
+   KEYFRAMES (t-* namespace)
+   ============================================================ */
+@keyframes t-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+@keyframes t-slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes t-highlight {
+  0%   { color: #ffffff; text-shadow: 0 0 10px rgba(255, 255, 255, 0.6); }
+  100% { color: inherit; text-shadow: none; }
+}
+@keyframes t-degraded-edge {
+  0%, 100% { box-shadow: inset 0 0 0 1px var(--tier-unknown), 0 0 0 transparent; }
+  50%      { box-shadow: inset 0 0 0 1px var(--tier-unknown), 0 0 14px var(--tier-unknown-glow); }
+}
+
+/* ============================================================
+   REDUCED MOTION — animations are decorative, never load-bearing
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE — stack on narrow screens
+   ============================================================ */
+@media (max-width: 880px) {
+  .tg-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: 320px auto auto;
+    grid-template-areas:
+      "map"
+      "panels"
+      "advisory";
+  }
+  .tg-panels { flex-direction: row; overflow-x: auto; }
+  .tg-panel { flex: 0 0 240px; }
+}

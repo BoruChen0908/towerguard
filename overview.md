@@ -55,7 +55,7 @@ OpenSky ADS-B
 ## 20 天能做出來的 demo
 
 - **資料**：OpenSky（即時 ADS-B，免費非商用）＋ NWS（天氣）＋ BTS／FAA NASR（機場資料）。**不碰 LiveATC 音檔、不碰 FAA 營運系統。**
-- **技術棧**：Python 模組 ＋ LangGraph/CrewAI（agent）＋ Redis（串接）＋ Streamlit＋地圖（儀表板）
+- **技術棧**：Python 模組 ＋ LangGraph/CrewAI（agent）＋ Redis（串接）＋ FastAPI/SSE ＋純 HTML/CSS ＋ Leaflet 地圖（儀表板；原定 Streamlit，為視覺品質與過場動畫改自製）
 - **最小版**：OpenSky ＋ 衝突偵測 ＋ 交班 agent ＋ Streamlit，約 10 個工作天；其餘擴充到 20 天
 - **demo 防呆**：留 5 分鐘 replay buffer（防 OpenSky 429／token 過期）、選 JFK/EWR/BOS/ATL 等 ADS-B 密集機場、UI 放醒目免責聲明「非認證 ATC 系統，僅供決策輔助」
 
@@ -71,7 +71,9 @@ OpenSky ADS-B
 | Bo-Ru / Katherine 介面契約 | 🟡 v1.1 提案已出（命名統一＋bug 修正），待 Katherine 6/15 確認 |
 | 任務主導執行計畫（`plan.md`） | ✅ 已成檔：demo 驗收清單 D1–D10 + 四個波次 |
 | 專業依據文獻庫（`docs/references/`） | ✅ 13 份官方文件已下載驗證（FAA/NTSB/OIG/TRB/NASA）+ 知識地圖索引 |
-| 三個模組實作 | ✅ 完成（120 tests / 97% cov，已上 GitHub private repo） |
+| 三個模組實作 | ✅ 完成（已上 GitHub private repo） |
+| Dashboard（地圖+面板+advisory+briefing） | ✅ 完成（FastAPI SSE + Leaflet，137 tests，瀏覽器實測通過） |
+| Mock Katherine + DEMO_MODE | ✅ 完成（不依賴她進度即可全 demo） |
 | 兩個 agent 實作 | ⬜ 開發中 |
 | 整合測試 | ⬜ 排定 6/19 |
 

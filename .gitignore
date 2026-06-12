@@ -11,3 +11,4 @@ htmlcov/
 *.pyc
 dist/
 build/
+.gstack/

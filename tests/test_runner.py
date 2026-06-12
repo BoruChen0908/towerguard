@@ -92,13 +92,16 @@ class TestRunCycle:
         assert len(published[TOPIC_WORKLOAD_INDEX]) == 1
 
     def test_published_messages_are_valid_json(self, fake_redis):
-        """Each published message must parse as JSON."""
-        captured = []
+        """Each of the three contract-topic messages must parse as a valid
+        envelope JSON. (The runner also publishes a demo-internal aircraft
+        snapshot on a fourth topic; that is asserted separately in
+        test_runner_snapshot.py and is not an envelope.)"""
+        captured: dict[str, str] = {}
 
         original_publish = fake_redis.publish
 
         def capture_publish(channel, message):
-            captured.append(message)
+            captured[channel] = message
             return original_publish(channel, message)
 
         fake_redis.publish = capture_publish
@@ -106,9 +109,13 @@ class TestRunCycle:
         with patch("modules.runner.fetch_states", return_value=_sample_states()):
             run_cycle("KJFK", fake_redis)
 
-        assert len(captured) == 3
-        for msg in captured:
-            parsed = json.loads(msg)
+        contract_topics = (
+            TOPIC_TRAFFIC_DENSITY,
+            TOPIC_CONFLICT_GEOMETRY,
+            TOPIC_WORKLOAD_INDEX,
+        )
+        for topic in contract_topics:
+            parsed = json.loads(captured[topic])
             assert "event_type" in parsed
             assert "tier" in parsed
             assert "data_unavailable" in parsed
