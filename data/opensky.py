@@ -272,18 +272,30 @@ _STATE_COLUMNS = [
 # variance is in feet), so we convert once here at the parse boundary.
 _METRES_TO_FEET = 3.28084
 
+# OpenSky reports velocity (ground speed) in m/s, but the pipeline treats
+# velocity as knots everywhere (conflict_geometry's kts→NM/s factor,
+# traffic_density's speed_variance, the runner's velocity_kt). Convert once
+# here at the parse boundary, same as altitude / vertical_rate above.
+_KNOTS_PER_MS = 1.943844
+
 
 def _to_feet(value: Any) -> Any:
     """Convert a metres value to feet, passing through None unchanged."""
     return value * _METRES_TO_FEET if value is not None else None
 
 
+def _to_knots(value: Any) -> Any:
+    """Convert a metres-per-second value to knots, passing None through."""
+    return value * _KNOTS_PER_MS if value is not None else None
+
+
 def _parse_states(raw: dict[str, Any]) -> list[dict[str, Any]]:
     """Convert OpenSky raw response to list of named-field dicts.
 
     Altitudes (baro_altitude, geo_altitude) and vertical_rate are converted
-    from OpenSky's metric units to feet / ft-per-second so that every consumer
-    downstream operates in feet consistently.
+    from OpenSky's metric units to feet / ft-per-second, and velocity from m/s
+    to knots, so that every consumer downstream operates in the same units
+    (feet, knots) consistently.
     """
     states_raw = raw.get("states") or []
     result = []
@@ -294,5 +306,6 @@ def _parse_states(raw: dict[str, Any]) -> list[dict[str, Any]]:
         state["baro_altitude"] = _to_feet(state["baro_altitude"])
         state["geo_altitude"] = _to_feet(state["geo_altitude"])
         state["vertical_rate"] = _to_feet(state["vertical_rate"])
+        state["velocity"] = _to_knots(state["velocity"])
         result.append(state)
     return result

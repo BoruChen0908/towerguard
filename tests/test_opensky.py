@@ -91,7 +91,69 @@ class TestParseStates:
         result = _parse_states(raw)
         assert len(result) == 1
         assert result[0]["icao24"] == "a12345"
-        assert result[0]["velocity"] == 250.0
+        # raw velocity 250.0 m/s → knots at the parse boundary
+        assert result[0]["velocity"] == pytest.approx(485.961, abs=0.1)
+
+    def test_velocity_converted_m_s_to_knots(self):
+        """Unit guard: a known m/s ground speed must parse to the right knots.
+
+        100 m/s = 194.3844 kt. If velocity is ever left unconverted (or the
+        factor regresses), this fails — the whole pipeline treats velocity as
+        knots, so the m/s→kt conversion must happen exactly once, here.
+        """
+        raw = {
+            "states": [
+                [
+                    "b00001",
+                    "TST100  ",
+                    "Testland",
+                    100,
+                    100,
+                    -73.0,
+                    40.0,
+                    1000.0,
+                    False,
+                    100.0,  # velocity: 100 m/s
+                    0.0,
+                    0.0,
+                    None,
+                    1000.0,
+                    "0000",
+                    False,
+                    0,
+                ]
+            ]
+        }
+        result = _parse_states(raw)
+        assert result[0]["velocity"] == pytest.approx(194.3844, abs=0.1)
+
+    def test_none_velocity_passes_through(self):
+        """A None velocity must remain None (not crash the conversion)."""
+        raw = {
+            "states": [
+                [
+                    "b00002",
+                    "TST200  ",
+                    "Testland",
+                    100,
+                    100,
+                    -73.0,
+                    40.0,
+                    1000.0,
+                    False,
+                    None,  # velocity unavailable
+                    0.0,
+                    0.0,
+                    None,
+                    1000.0,
+                    "0000",
+                    False,
+                    0,
+                ]
+            ]
+        }
+        result = _parse_states(raw)
+        assert result[0]["velocity"] is None
 
     def test_empty_states_returns_empty_list(self):
         assert _parse_states({"states": []}) == []

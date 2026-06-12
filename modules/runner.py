@@ -74,8 +74,8 @@ def _build_snapshot(airport_icao: str, states: list[dict[str, Any]]) -> dict[str
     """Build an aircraft_snapshot payload from parsed state vectors.
 
     Demo-internal schema (TOPIC_AIRCRAFT_SNAPSHOT). lat/lon are the raw parsed
-    degrees; alt_ft is geo_altitude (already feet after the parse boundary);
-    velocity_kt is the parsed velocity, which the pipeline treats as knots.
+    degrees; alt_ft is geo_altitude and velocity_kt is velocity, both already in
+    feet / knots after the metric conversions done at the parse boundary.
     """
     aircraft = [
         {

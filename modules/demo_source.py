@@ -12,9 +12,11 @@ conflict timing stays deterministic regardless of jitter; the eight fixture
 aircraft are the moving "background" traffic.
 
 Units note: parsed OpenSky ``velocity`` is consumed as knots throughout the
-pipeline (conflict_geometry converts it with a kts→NM/s factor, and the fixture
-speeds 240-320 are realistic terminal knots, not m/s). DEMO state vectors follow
-the same convention.
+pipeline (conflict_geometry converts it with a kts→NM/s factor). OpenSky's raw
+velocity is m/s and is converted to knots at the parse boundary, so the fixture
+stores raw m/s values that ``_parse_fixture_row`` converts to the same knots the
+real path produces. The synthesized converging pair below is built post-parse,
+so its ``velocity`` is already in knots and is not run through the conversion.
 """
 
 import json
@@ -22,7 +24,7 @@ import random
 from pathlib import Path
 from typing import Any
 
-from data.opensky import _STATE_COLUMNS, _to_feet
+from data.opensky import _STATE_COLUMNS, _to_feet, _to_knots
 
 _FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "sample_states.json"
 
@@ -42,12 +44,14 @@ _NM_PER_DEG_LAT = 60.0
 
 
 def _parse_fixture_row(row: list[Any]) -> dict[str, Any]:
-    """Apply column names + the metric→feet conversion done at the OpenSky
-    parse boundary, so DEMO states match real parsed states field-for-field."""
+    """Apply column names + the metric conversions done at the OpenSky parse
+    boundary (metres→feet, m/s→knots), so DEMO states match real parsed states
+    field-for-field."""
     state = dict(zip(_STATE_COLUMNS, row))
     state["baro_altitude"] = _to_feet(state["baro_altitude"])
     state["geo_altitude"] = _to_feet(state["geo_altitude"])
     state["vertical_rate"] = _to_feet(state["vertical_rate"])
+    state["velocity"] = _to_knots(state["velocity"])
     return state
 
 
