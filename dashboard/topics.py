@@ -16,6 +16,10 @@ TOPIC_WORKLOAD_INDEX = "towerguard:workload_index"
 TOPIC_ADVISORY = "towerguard:advisory"
 TOPIC_AIRCRAFT_SNAPSHOT = "towerguard:aircraft_snapshot"  # demo-internal
 TOPIC_BRIEFING = "towerguard:briefing"  # demo-internal
+# v1.2: Orchestrator-owned advisory state transitions (resolved/superseded/
+# expired). The bridge forwards this topic's JSON verbatim as an
+# `advisory_lifecycle` SSE event so the dashboard can collapse/relabel cards.
+TOPIC_ADVISORY_LIFECYCLE = "towerguard:advisory_lifecycle"
 
 # SSE event type ← Redis topic. Topic JSON is forwarded as the SSE `data`
 # field verbatim for every type except `briefing` (re-shaped in server.py).
@@ -26,6 +30,7 @@ TOPIC_TO_EVENT: dict[str, str] = {
     TOPIC_ADVISORY: "advisory",
     TOPIC_AIRCRAFT_SNAPSHOT: "aircraft_snapshot",
     TOPIC_BRIEFING: "briefing",
+    TOPIC_ADVISORY_LIFECYCLE: "advisory_lifecycle",
 }
 
 SUBSCRIBED_TOPICS: tuple[str, ...] = tuple(TOPIC_TO_EVENT.keys())
@@ -44,3 +49,14 @@ SSE_EVENT_TYPES: frozenset[str] = frozenset(TOPIC_TO_EVENT.values()) | {
 # Redis String key holding the operator-selected airport ICAO (functional A).
 # The runner polls this every few seconds; the dashboard SETs it on switch.
 SELECTED_AIRPORT_KEY = "towerguard:selected_airport"
+
+# v1.2 re-assess channel: the dashboard publishes a reassess_request here (via
+# POST /reassess); the Orchestrator (mock_katherine engine) subscribes and must
+# always reply on TOPIC_ADVISORY / TOPIC_ADVISORY_LIFECYCLE. It is a pure
+# request channel — NOT forwarded to SSE — so it stays out of TOPIC_TO_EVENT.
+TOPIC_REASSESS_REQUEST = "towerguard:reassess_request"
+
+# v1.2 director switches. The dashboard SET/DELetes towerguard:demo:{flag} for
+# flag ∈ {degraded, sparse, workload_surge}; the runner reads them each cycle.
+DEMO_FLAG_KEY_PREFIX = "towerguard:demo:"
+DEMO_FLAGS: tuple[str, ...] = ("degraded", "sparse", "workload_surge")

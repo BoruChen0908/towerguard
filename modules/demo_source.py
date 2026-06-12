@@ -152,6 +152,7 @@ def demo_states(
     lat0: float,
     lon0: float,
     rng: random.Random | None = None,
+    background_limit: int | None = None,
 ) -> list[dict[str, Any]]:
     """Build one cycle's DEMO state vectors: jittered background + converge pair.
 
@@ -163,10 +164,16 @@ def demo_states(
     Args:
         lat0, lon0: airport centre, used to anchor the converging pair.
         rng: optional Random for deterministic tests; defaults to module random.
+        background_limit: cap the background fleet to the first N aircraft (the
+            ``sparse`` director switch sets this to 2 so traffic density falls to
+            LOW while the converging pair still drives the conflict). None keeps
+            the full fixture fleet, preserving the default behaviour.
     """
     global _converge_elapsed_s
     r = rng or random
     background = [_jitter(s, r) for s in _load_background()]
+    if background_limit is not None:
+        background = background[:background_limit]
 
     # Remaining gap before this cycle's snapshot; once it has shrunk to the
     # terminal minimum the pair has passed through the conflict → respawn.

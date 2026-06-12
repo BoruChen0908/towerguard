@@ -81,8 +81,9 @@ class PubSubBridge:
     def start(self) -> None:
         """Subscribe and spawn the background listen threads (idempotent).
 
-        Two threads: one tails Redis pub/sub for the six module/advisory event
-        types; the other tails the shift-events Redis Stream.
+        Two threads: one tails Redis pub/sub for the module/advisory/lifecycle
+        event types (SUBSCRIBED_TOPICS); the other tails the shift-events Redis
+        Stream.
         """
         if self._thread is not None:
             return

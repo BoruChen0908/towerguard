@@ -46,18 +46,29 @@ def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, value))
 
 
-def compute(airport_icao: str) -> dict[str, Any]:
+def compute(
+    airport_icao: str,
+    staffed_override: int | None = None,
+) -> dict[str, Any]:
     """Build a workload_index event for the given airport.
 
     All inputs come from config; no live data dependency beyond airport lookup.
     Returns a validated event dict ready for JSON serialisation.
+
+    ``staffed_override`` lets the runner force the on-board headcount for a
+    director switch (workload_surge drops staffing to drive the score up). When
+    None the config value is used, preserving the default behaviour.
     """
     airport = config.AIRPORTS.get(airport_icao)
     if airport is None:
         logger.error("Unknown airport %r for workload_index", airport_icao)
         return compute_unavailable(airport_icao)
 
-    staffed = airport.staffed_controllers
+    staffed = (
+        staffed_override
+        if staffed_override is not None
+        else airport.staffed_controllers
+    )
     recommended = airport.recommended_controllers
     active_freq = airport.active_frequencies
     handoff_rate = airport.handoff_rate_per_hour

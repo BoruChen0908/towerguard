@@ -16,6 +16,7 @@ remaining 60 s. With no change it keeps the 60 s publish cadence.
 
 import json
 import logging
+import math
 import os
 import time
 from typing import Any, Optional
@@ -24,7 +25,11 @@ import redis
 
 import config
 from dashboard.shift_stream import KIND_AIRPORT_SWITCH, xadd_shift_event
-from dashboard.topics import SELECTED_AIRPORT_KEY
+from dashboard.topics import (
+    DEMO_FLAG_KEY_PREFIX,
+    DEMO_FLAGS,
+    SELECTED_AIRPORT_KEY,
+)
 from data.opensky import OpenSkyUnavailable, fetch_states
 from modules import conflict_geometry, traffic_density, workload_index
 from modules.envelope import to_json, utc_now_iso
@@ -40,6 +45,14 @@ TOPIC_WORKLOAD_INDEX = "towerguard:workload_index"
 # payload schema is a demo convention, not part of the frozen module envelopes.
 TOPIC_AIRCRAFT_SNAPSHOT = "towerguard:aircraft_snapshot"
 
+# Director switches (v1.2). When ``sparse`` is on the DEMO background fleet is
+# capped to this many aircraft so traffic density falls to LOW while the
+# converging pair still drives the conflict (the SURFACE_CONFLICT scenario).
+_SPARSE_BACKGROUND_AIRCRAFT = 2
+# When ``workload_surge`` is on, on-board staffing is forced to this fraction of
+# the FAA-recommended count (ceil) to push the workload index up.
+_SURGE_STAFFING_FRACTION = 0.60
+
 
 def _build_redis_client() -> redis.Redis:
     url = os.getenv("REDIS_URL", config.REDIS_URL_DEFAULT)
@@ -51,12 +64,50 @@ def _demo_mode_enabled() -> bool:
     return os.getenv("DEMO_MODE") == "1"
 
 
-def _fetch_states_for_cycle(airport_icao: str) -> Optional[list]:
+def _read_demo_flags(redis_client: redis.Redis) -> dict[str, bool]:
+    """Read the director switches (towerguard:demo:{flag}) for this cycle.
+
+    Presence of the key == on. A Redis error resolves every flag to off so a
+    transient blip never silently flips the demo into a degraded scenario.
+    """
+    flags: dict[str, bool] = {}
+    for flag in DEMO_FLAGS:
+        try:
+            flags[flag] = redis_client.get(f"{DEMO_FLAG_KEY_PREFIX}{flag}") is not None
+        except Exception as exc:
+            logger.warning("Could not read demo flag %s: %s", flag, exc)
+            flags[flag] = False
+    return flags
+
+
+def _surge_staffed(airport_icao: str) -> Optional[int]:
+    """On-board headcount forced by the workload_surge switch, or None.
+
+    ceil(recommended * 0.60) — a deterministic understaffing that pushes the
+    workload index up. None when the airport is unknown (compute handles it).
+    """
+    airport = config.AIRPORTS.get(airport_icao)
+    if airport is None:
+        return None
+    return math.ceil(airport.recommended_controllers * _SURGE_STAFFING_FRACTION)
+
+
+def _fetch_states_for_cycle(
+    airport_icao: str,
+    flags: dict[str, bool],
+) -> Optional[list]:
     """Return state vectors for this cycle, or None if upstream is unavailable.
 
     In DEMO_MODE the OpenSky call is bypassed entirely and synthetic state
-    vectors (jittered fixture + a guaranteed converging pair) are returned.
+    vectors (jittered fixture + a guaranteed converging pair) are returned. The
+    ``degraded`` director switch forces the unavailable path (None) regardless of
+    mode, simulating an OpenSky outage; ``sparse`` thins the DEMO background
+    fleet so traffic density drops to LOW.
     """
+    if flags.get("degraded"):
+        logger.info("DEMO degraded switch on — simulating OpenSky outage")
+        return None
+
     if _demo_mode_enabled():
         from config import AIRPORTS
         from modules.demo_source import demo_states
@@ -65,7 +116,10 @@ def _fetch_states_for_cycle(airport_icao: str) -> Optional[list]:
         if airport is None:
             logger.warning("DEMO_MODE: unknown airport %s", airport_icao)
             return None
-        states = demo_states(airport.lat, airport.lon)
+        background_limit = _SPARSE_BACKGROUND_AIRCRAFT if flags.get("sparse") else None
+        states = demo_states(
+            airport.lat, airport.lon, background_limit=background_limit
+        )
         logger.info("DEMO_MODE: synthesized %d state vectors", len(states))
         return states
 
@@ -110,10 +164,15 @@ def run_cycle(
 ) -> None:
     """Execute one full data-fetch → compute → publish cycle.
 
-    On OpenSky failure, all three modules emit data_unavailable events.
+    On OpenSky failure (or the ``degraded`` director switch), Traffic Density
+    and Conflict Geometry emit data_unavailable events. The ``workload_surge``
+    switch forces Workload Index staffing down to push its score up.
     """
+    # --- Director switches (read once per cycle) ---
+    flags = _read_demo_flags(redis_client)
+
     # --- Fetch (single call, fan-out) ---
-    states: Optional[list] = _fetch_states_for_cycle(airport_icao)
+    states: Optional[list] = _fetch_states_for_cycle(airport_icao, flags)
 
     # --- Compute ---
     if states is not None:
@@ -123,8 +182,11 @@ def run_cycle(
         td_event = traffic_density.compute_unavailable(airport_icao)
         cg_event = conflict_geometry.compute_unavailable(airport_icao)
 
-    # Workload Index never depends on live data
-    wi_event = workload_index.compute(airport_icao)
+    # Workload Index never depends on live data; workload_surge forces staffing.
+    staffed_override = (
+        _surge_staffed(airport_icao) if flags.get("workload_surge") else None
+    )
+    wi_event = workload_index.compute(airport_icao, staffed_override=staffed_override)
 
     # --- Publish contract topics (unchanged behaviour) ---
     _publish(redis_client, TOPIC_TRAFFIC_DENSITY, td_event)

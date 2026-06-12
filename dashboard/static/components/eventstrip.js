@@ -3,12 +3,17 @@
 // truncated summary (full summary on hover). Newest chip sits on the right and
 // the strip auto-scrolls to it. Capped at MAX_CHIPS; oldest drop off the left.
 //
-// shift_event payload: { timestamp: ISO8601Z, kind, summary, ref|null }
-// kind ∈ tier_change | advisory | briefing | airport_switch | confirm | dismiss
-// Per-kind dot color is owned by CSS via data-kind (see style.css).
+// shift_event payload: { timestamp: ISO8601Z, kind, summary, ref|null, tier? }
+// kind ∈ tier_change | advisory | briefing | airport_switch | confirm |
+//        dismiss | reassess | supersede | resolve | expire
+// Per-kind dot color is owned by CSS via data-kind. When an optional `tier`
+// field is present the dot uses the real tier color instead (data-tier),
+// so a tier_change chip shows the tier it changed to (see style.css).
 
 const MAX_CHIPS = 50;
 const SUMMARY_MAX = 48; // chars before ellipsis on the inline label
+
+const TIERS = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL", "UNKNOWN"]);
 
 // kinds we color explicitly; anything else falls back to a neutral dot.
 const KNOWN_KINDS = new Set([
@@ -18,6 +23,10 @@ const KNOWN_KINDS = new Set([
   "airport_switch",
   "confirm",
   "dismiss",
+  "reassess",
+  "supersede",
+  "resolve",
+  "expire",
 ]);
 
 export function createEventStrip(stripEl, emptyEl) {
@@ -64,6 +73,9 @@ function buildChip(ev) {
 
   const dot = document.createElement("span");
   dot.className = "tg-event-chip-dot";
+  // optional tier overrides the kind color so the dot reads as the real tier.
+  const tier = String(ev.tier || "").toUpperCase();
+  if (TIERS.has(tier)) dot.dataset.tier = tier;
 
   const label = document.createElement("span");
   label.className = "tg-event-chip-summary";

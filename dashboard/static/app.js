@@ -10,6 +10,7 @@ import { createBriefing } from "./components/briefing.js";
 import { createLineage } from "./components/lineage.js";
 import { createEventStrip } from "./components/eventstrip.js";
 import { createAirportSwitcher } from "./components/airport.js";
+import { attachInfoIcon } from "./components/info.js";
 import { utcClock } from "./components/format.js";
 
 // ---- header refs ----
@@ -67,6 +68,25 @@ const eventStrip = createEventStrip(
 );
 
 // lineage panel self-wires its button/scrim listeners; no further refs needed.
+
+// ---- region info (ⓘ) icons: one shared popover, English help per region ----
+// Each call appends a quiet ⓘ to the region's header host; missing hosts are
+// skipped silently so a markup change never throws.
+const INFO_MOUNTS = [
+  ["info-traffic_density", "traffic_density"],
+  ["info-conflict_geometry", "conflict_geometry"],
+  ["info-workload_index", "workload_index"],
+  ["info-map", "map"],
+  ["info-advisory", "advisory"],
+  ["info-shift_events", "shift_events"],
+  ["info-briefing", "briefing"],
+  ["info-airport", "airport"],
+  ["info-connection", "connection"],
+];
+for (const [hostId, key] of INFO_MOUNTS) {
+  const host = document.getElementById(hostId);
+  if (host) attachInfoIcon(host, key);
+}
 
 // ---- cross-module state: latest conflict pair drives map highlighting ----
 let conflictPair = []; // callsigns of closest_pair, or []
@@ -135,6 +155,10 @@ function onEvent(type, data) {
 
     case "advisory":
       advisoryRail.handle(data);
+      break;
+
+    case "advisory_lifecycle":
+      advisoryRail.handleLifecycle(data);
       break;
 
     case "briefing":

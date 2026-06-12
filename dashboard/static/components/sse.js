@@ -5,6 +5,7 @@ const EVENT_TYPES = [
   "conflict_geometry",
   "workload_index",
   "advisory",
+  "advisory_lifecycle",
   "aircraft_snapshot",
   "briefing",
   "shift_event",

@@ -22,8 +22,23 @@ Interface contract (frozen with the frontend agent):
                                  Also XADDs a confirm shift event.
   POST /dismiss/{advisory_id}  → SET towerguard:dismissed:{id} <ISO8601 UTC>,
                                  idempotent (returns the existing timestamp on
-                                 repeat). Returns {"advisory_id", "dismissed_at"}.
-                                 Also XADDs a dismiss shift event.
+                                 repeat). Optional JSON body {"reason": <enum>}
+                                 with reason ∈ {already_separated, data_stale,
+                                 visual_separation, false_geometry, other}; the
+                                 reason is stored under towerguard:dismiss_reason:
+                                 {id} and carried on the dismiss shift event.
+                                 Returns {"advisory_id", "dismissed_at"}. Also
+                                 XADDs a dismiss shift event.
+  POST /reassess/{advisory_id} → publish a reassess_request to
+                                 towerguard:reassess_request; rate-limited to 2
+                                 per advisory (429 {"error": "reassess_limit"} on
+                                 the third). Returns {"advisory_id",
+                                 "request_id", "requested_at"}.
+  POST /demo/{flag}/{state}    → flag ∈ {degraded, sparse, workload_surge},
+                                 state ∈ {on, off}; SET/DEL towerguard:demo:{flag}.
+                                 404 on unknown flag/state. Returns the full
+                                 demo-flag state map.
+  GET  /demo                   → current {flag: bool} director-switch state.
   GET  /lineage                → docs/lineage.md as text/markdown; 404 if absent.
   GET  /health                 → {"status": "ok", "redis": bool}
 
@@ -31,28 +46,57 @@ Same-origin only (no CORS). Run with uvicorn on 127.0.0.1:8800.
 """
 
 import asyncio
+import json
 import logging
 import os
+import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 import redis
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from sse_starlette.sse import EventSourceResponse
 
 import config
 from dashboard.bridge import PubSubBridge
 from dashboard.shift_stream import KIND_CONFIRM, KIND_DISMISS, xadd_shift_event
-from dashboard.topics import SELECTED_AIRPORT_KEY
+from dashboard.topics import (
+    DEMO_FLAG_KEY_PREFIX,
+    DEMO_FLAGS,
+    SELECTED_AIRPORT_KEY,
+    TOPIC_REASSESS_REQUEST,
+)
 
 logger = logging.getLogger(__name__)
 
 # Key prefixes for the persisted human-in-the-loop decisions (contact.md §4).
 CONFIRMED_KEY_PREFIX = "towerguard:confirmed:"
 DISMISSED_KEY_PREFIX = "towerguard:dismissed:"
+# v1.2: a dismissal may carry a canned reason chip (false-positive ground truth
+# for threshold tuning); stored separately so the dismissed_at key stays an ISO
+# timestamp exactly as before.
+DISMISS_REASON_KEY_PREFIX = "towerguard:dismiss_reason:"
+# v1.2 re-assess rate limit: a Redis counter per advisory caps manual re-assess
+# requests so a controller cannot hammer the Orchestrator on one card.
+REASSESS_COUNT_KEY_PREFIX = "towerguard:reassess_count:"
+REASSESS_MAX_PER_ADVISORY = 2
+
+# Canned dismiss reasons (frozen with the frontend agent — the chip set).
+DISMISS_REASONS = frozenset(
+    {
+        "already_separated",
+        "data_stale",
+        "visual_separation",
+        "false_geometry",
+        "other",
+    }
+)
+
+# Director-switch states accepted by POST /demo/{flag}/{state}.
+DEMO_STATES = frozenset({"on", "off"})
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _INDEX_HTML = _STATIC_DIR / "index.html"
@@ -70,6 +114,46 @@ def _build_redis_client() -> redis.Redis:
 def _utc_now_iso() -> str:
     """Current UTC time as ISO 8601 (matches the module envelope format)."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+async def _parse_dismiss_reason(request: Request) -> str | None:
+    """Extract an optional, validated dismiss reason from the request body.
+
+    The body is optional: an empty body, non-JSON, or an absent ``reason`` all
+    resolve to None (a reasonless dismissal — unchanged v1.1 behaviour). A
+    present ``reason`` must be one of the canned chips; anything else is a 400 so
+    a typo cannot silently poison the false-positive ground-truth data.
+    """
+    raw = await request.body()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    reason = parsed.get("reason")
+    if reason is None:
+        return None
+    if reason not in DISMISS_REASONS:
+        raise HTTPException(status_code=400, detail=f"Unknown dismiss reason: {reason}")
+    return reason
+
+
+def _demo_state(redis_client: redis.Redis) -> dict:
+    """Return {flag: bool} for every director switch, presence == on.
+
+    A Redis error is treated as all-off so the dashboard always renders a valid
+    switch panel rather than failing on a transient blip.
+    """
+    state: dict[str, bool] = {}
+    for flag in DEMO_FLAGS:
+        try:
+            state[flag] = redis_client.get(f"{DEMO_FLAG_KEY_PREFIX}{flag}") is not None
+        except Exception:
+            state[flag] = False
+    return {"flags": state}
 
 
 @asynccontextmanager
@@ -197,28 +281,99 @@ def create_app() -> FastAPI:
         return {"advisory_id": advisory_id, "confirmed_at": confirmed_at}
 
     @app.post("/dismiss/{advisory_id}")
-    async def dismiss(advisory_id: str) -> dict:
+    async def dismiss(advisory_id: str, request: Request) -> dict:
         """Persist a controller dismissal; idempotent on repeat clicks.
 
         Human-in-the-loop is not just "confirm": the controller may reject the
         escalation. Mirrors /confirm — SET NX so the first click writes "now" and
         repeats return the stored timestamp, and the first write appends a dismiss
         shift event for the relief-briefing narrative.
+
+        The dismissed_at key stays a bare ISO timestamp (unchanged contract); an
+        optional body {"reason": <enum>} is stored separately under
+        towerguard:dismiss_reason:{id} and folded into the dismiss shift-event
+        summary so the chosen chip surfaces in the shift log.
         """
+        reason = await _parse_dismiss_reason(request)
         redis_client: redis.Redis = app.state.redis
         key = f"{DISMISSED_KEY_PREFIX}{advisory_id}"
         now_iso = _utc_now_iso()
         created = redis_client.set(key, now_iso, nx=True)
         if created:
+            if reason is not None:
+                redis_client.set(f"{DISMISS_REASON_KEY_PREFIX}{advisory_id}", reason)
+            summary = f"Advisory {advisory_id} dismissed by controller"
+            if reason is not None:
+                summary = f"{summary} ({reason})"
             xadd_shift_event(
                 redis_client,
                 kind=KIND_DISMISS,
-                summary=f"Advisory {advisory_id} dismissed by controller",
+                summary=summary,
                 ref=advisory_id,
                 timestamp=now_iso,
             )
         dismissed_at = now_iso if created else redis_client.get(key)
         return {"advisory_id": advisory_id, "dismissed_at": dismissed_at}
+
+    @app.post("/reassess/{advisory_id}")
+    async def reassess(advisory_id: str):
+        """Publish a controller-initiated re-assess request; capped at 2/advisory.
+
+        Increments a per-advisory Redis counter; the third request returns 429
+        {"error": "reassess_limit"} instead of publishing. Otherwise a
+        reassess_request envelope is published to towerguard:reassess_request for
+        the Orchestrator, which must always reply (never silent) on the advisory
+        / advisory_lifecycle topics. The shift-event log entry for the re-assess
+        is written by the Orchestrator when it acts, not here.
+        """
+        redis_client: redis.Redis = app.state.redis
+        count_key = f"{REASSESS_COUNT_KEY_PREFIX}{advisory_id}"
+        count = redis_client.incr(count_key)
+        if count > REASSESS_MAX_PER_ADVISORY:
+            return JSONResponse(status_code=429, content={"error": "reassess_limit"})
+
+        request_id = f"RAS-{secrets.token_hex(2)}"
+        requested_at = _utc_now_iso()
+        payload = {
+            "type": "reassess_request",
+            "request_id": request_id,
+            "advisory_id": advisory_id,
+            "requested_at": requested_at,
+            "reason": "controller_manual",
+        }
+        redis_client.publish(
+            TOPIC_REASSESS_REQUEST, json.dumps(payload, separators=(",", ":"))
+        )
+        return {
+            "advisory_id": advisory_id,
+            "request_id": request_id,
+            "requested_at": requested_at,
+        }
+
+    @app.post("/demo/{flag}/{state}")
+    async def set_demo_flag(flag: str, state: str) -> dict:
+        """Toggle a director switch: SET towerguard:demo:{flag} on, DEL off.
+
+        404 on an unknown flag or state. The runner reads these keys each cycle
+        (degraded → OpenSky-unavailable path; sparse → 2-aircraft background;
+        workload_surge → staffing forced to 60%). Returns the full flag map.
+        """
+        if flag not in DEMO_FLAGS:
+            raise HTTPException(status_code=404, detail=f"Unknown demo flag: {flag}")
+        if state not in DEMO_STATES:
+            raise HTTPException(status_code=404, detail=f"Unknown demo state: {state}")
+        redis_client: redis.Redis = app.state.redis
+        key = f"{DEMO_FLAG_KEY_PREFIX}{flag}"
+        if state == "on":
+            redis_client.set(key, "1")
+        else:
+            redis_client.delete(key)
+        return _demo_state(redis_client)
+
+    @app.get("/demo")
+    async def get_demo() -> dict:
+        """Return the current {flag: bool} state of every director switch."""
+        return _demo_state(app.state.redis)
 
     @app.get("/health")
     async def health() -> dict:

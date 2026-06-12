@@ -32,12 +32,14 @@
         <option value="" disabled selected>----</option>
       </select>
     </label>
+    <span class="tg-info-host" id="info-airport"></span>
     <button class="tg-lineage-btn" id="lineage-btn" type="button">LINEAGE</button>
     <span class="tg-header-spacer"></span>
     <span class="tg-clock" id="utc-clock">--:--:--<span class="tg-clock-z">Z</span></span>
     <span class="tg-conn" id="conn-indicator" title="Connection status">
       <span class="tg-conn-dot" id="conn-dot"></span>
       <span class="tg-conn-label" id="conn-label">CONNECTING</span>
+      <span class="tg-info-host" id="info-connection"></span>
     </span>
   </header>
 
@@ -52,13 +54,14 @@
     <!-- Left: map -->
     <section class="tg-map-wrap" aria-label="Airspace map">
       <div id="map"></div>
+      <span class="tg-map-info" id="info-map"></span>
     </section>
 
     <!-- Right: three signal panels stacked -->
     <aside class="tg-panels" aria-label="Signal panels">
       <article class="tg-panel" id="panel-traffic_density" data-module="traffic_density">
         <div class="tg-panel-head">
-          <span class="tg-panel-title">TRAFFIC DENSITY</span>
+          <span class="tg-panel-title">TRAFFIC DENSITY<span class="tg-info-host" id="info-traffic_density"></span></span>
           <span class="tg-panel-age" data-role="age">--</span>
         </div>
         <div class="tg-panel-tier" data-role="tier">&mdash;</div>
@@ -68,7 +71,7 @@
 
       <article class="tg-panel" id="panel-conflict_geometry" data-module="conflict_geometry">
         <div class="tg-panel-head">
-          <span class="tg-panel-title">CONFLICT GEOMETRY</span>
+          <span class="tg-panel-title">CONFLICT GEOMETRY<span class="tg-info-host" id="info-conflict_geometry"></span></span>
           <span class="tg-panel-age" data-role="age">--</span>
         </div>
         <div class="tg-panel-tier" data-role="tier">&mdash;</div>
@@ -78,7 +81,7 @@
 
       <article class="tg-panel" id="panel-workload_index" data-module="workload_index">
         <div class="tg-panel-head">
-          <span class="tg-panel-title">WORKLOAD INDEX</span>
+          <span class="tg-panel-title">WORKLOAD INDEX<span class="tg-info-host" id="info-workload_index"></span></span>
           <span class="tg-panel-age" data-role="age">--</span>
         </div>
         <div class="tg-panel-tier" data-role="tier">&mdash;</div>
@@ -89,8 +92,16 @@
 
     <!-- Bottom: shift event strip + advisory rail (span full width) -->
     <section class="tg-advisory-zone">
+      <div class="tg-zone-label">
+        <span class="tg-zone-label-text">SHIFT EVENTS</span>
+        <span class="tg-info-host" id="info-shift_events"></span>
+      </div>
       <div class="tg-event-strip" id="event-strip" aria-label="Shift events" aria-live="polite">
         <span class="tg-event-strip-empty" id="event-strip-empty">No shift events yet</span>
+      </div>
+      <div class="tg-zone-label">
+        <span class="tg-zone-label-text">ADVISORIES</span>
+        <span class="tg-info-host" id="info-advisory"></span>
       </div>
       <div class="tg-advisory-rail" id="advisory-rail" aria-label="Advisories" aria-live="polite">
         <div class="tg-advisory-empty" id="advisory-empty">No active advisories</div>
@@ -107,7 +118,7 @@
   <div class="tg-briefing-scrim" id="briefing-scrim" hidden></div>
   <aside class="tg-briefing-panel" id="briefing-panel" aria-label="Position relief briefing" aria-hidden="true">
     <div class="tg-briefing-panel-head">
-      <span class="tg-briefing-panel-title">Position Relief Briefing</span>
+      <span class="tg-briefing-panel-title">Position Relief Briefing<span class="tg-info-host" id="info-briefing"></span></span>
       <button class="tg-briefing-close" id="briefing-close" aria-label="Close briefing">&times;</button>
     </div>
     <div class="tg-briefing-body" id="briefing-body"></div>

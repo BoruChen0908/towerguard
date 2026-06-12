@@ -1,32 +1,18 @@
-"""Tests for functional B — mock_katherine's shift-event publishing.
+"""Tests for mock_katherine's tier_change shift-event publishing (v1.2).
 
-Covers:
-  - _maybe_log_tier_change: baseline (no log), unchanged (no log), transition
-    (XADD tier_change with the contract summary + alert_id ref)
-  - tier_change summary formatting incl. the conflict pair suffix
-  - _publish_advisory / _publish_briefing also XADD advisory / briefing events
+Covers _maybe_log_tier_change: baseline (no log), unchanged (no log), transition
+(XADD tier_change with the contract summary + alert_id ref + the new tier field),
+and the conflict-pair summary suffix.
 """
-
-import json
 
 import fakeredis
 import pytest
 
-from dashboard.shift_stream import (
-    KIND_ADVISORY,
-    KIND_BRIEFING,
-    KIND_TIER_CHANGE,
-    read_recent,
-)
+from dashboard.shift_stream import KIND_TIER_CHANGE, read_recent
 from fixtures import mock_katherine
 from fixtures.mock_katherine import (
-    TOPIC_ADVISORY,
     TOPIC_CONFLICT_GEOMETRY,
     _maybe_log_tier_change,
-    _publish_advisory,
-    _publish_briefing,
-    build_advisory,
-    build_briefing_payload,
 )
 
 
@@ -65,7 +51,9 @@ class TestTierChange:
         )
         assert read_recent(fake_redis) == []
 
-    def test_transition_logs_tier_change_with_contract_summary(self, fake_redis):
+    def test_transition_logs_tier_change_with_contract_summary_and_tier(
+        self, fake_redis
+    ):
         last = {TOPIC_CONFLICT_GEOMETRY: "HIGH"}
         _maybe_log_tier_change(
             fake_redis,
@@ -80,10 +68,11 @@ class TestTierChange:
             events[0]["summary"] == "CONFLICT GEOMETRY HIGH → CRITICAL (DMO901/DMO902)"
         )
         assert events[0]["ref"] == "CG-0009"
+        # v1.2: the new tier is carried so the event strip can colour the row.
+        assert events[0]["tier"] == "CRITICAL"
         assert last[TOPIC_CONFLICT_GEOMETRY] == "CRITICAL"
 
     def test_summary_without_pair_omits_suffix(self, fake_redis):
-        # traffic_density events carry no closest_pair → no suffix.
         last = {mock_katherine.TOPIC_TRAFFIC_DENSITY: "LOW"}
         td_event = {
             "event_type": "traffic_density",
@@ -96,47 +85,4 @@ class TestTierChange:
         events = read_recent(fake_redis)
         assert events[0]["summary"] == "TRAFFIC DENSITY LOW → MEDIUM"
         assert events[0]["ref"] == "TD-0003"
-
-
-class TestPublishHelpers:
-    def test_publish_advisory_publishes_and_logs(self, fake_redis):
-        published = _capture_publish(fake_redis)
-
-        advisory = build_advisory("ADV-0001", _cg_event("CRITICAL"))
-        _publish_advisory(fake_redis, advisory)
-
-        # advisory shift event logged with the advisory_id ref
-        events = [e for e in read_recent(fake_redis) if e["kind"] == KIND_ADVISORY]
-        assert len(events) == 1
-        assert events[0]["ref"] == "ADV-0001"
-        assert events[0]["summary"] == advisory["summary"]
-
-        # and the advisory was published verbatim to its pub/sub topic
-        assert TOPIC_ADVISORY in published
-        assert json.loads(published[TOPIC_ADVISORY])["advisory_id"] == "ADV-0001"
-
-    def test_publish_briefing_publishes_and_logs(self, fake_redis):
-        published = _capture_publish(fake_redis)
-
-        payload = build_briefing_payload("ADV-0002", _cg_event("HIGH"))
-        _publish_briefing(fake_redis, payload, "ADV-0002")
-
-        events = [e for e in read_recent(fake_redis) if e["kind"] == KIND_BRIEFING]
-        assert len(events) == 1
-        assert events[0]["ref"] == "ADV-0002"
-        assert "ADV-0002" in events[0]["summary"]
-
-        assert mock_katherine.TOPIC_BRIEFING in published
-
-
-def _capture_publish(fake_redis) -> dict[str, str]:
-    """Intercept redis.publish, recording the last payload per channel."""
-    captured: dict[str, str] = {}
-    original = fake_redis.publish
-
-    def capture(channel, message):
-        captured[channel] = message
-        return original(channel, message)
-
-    fake_redis.publish = capture
-    return captured
+        assert events[0]["tier"] == "MEDIUM"

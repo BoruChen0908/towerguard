@@ -71,8 +71,12 @@ body {
   line-height: 1.4;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  /* the page scrolls vertically: cards/evidence grow naturally below the map
+     row and nothing (especially action buttons) ever clips */
+  min-height: 100vh;
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* tabular figures everywhere numbers matter */
@@ -210,7 +214,9 @@ body {
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr 340px;
-  grid-template-rows: 1fr auto;
+  /* map row gets a stable viewport share; advisory zone takes natural height
+     below it and the page scrolls */
+  grid-template-rows: clamp(420px, 56vh, 760px) auto;
   grid-template-areas:
     "map panels"
     "advisory advisory";
@@ -426,11 +432,14 @@ body {
 .tg-advisory-rail {
   display: flex;
   gap: var(--gap);
-  align-items: stretch;
+  align-items: flex-start;
   min-height: 64px;
-  max-height: 150px;
+  /* v1.2 cards vary in height (evidence, conflict columns, reason chips).
+     The rail sizes to content and the grid shrinks the map row instead —
+     action buttons must never clip. */
+  max-height: none;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   padding: 2px;
 }
 .tg-advisory-empty {
@@ -605,6 +614,28 @@ body {
 .tg-event-chip[data-kind="dismiss"] .tg-event-chip-dot {
   background: var(--fg-faint);
 }
+/* new lifecycle kinds: reassess blue, supersede amber, resolve green, expire grey */
+.tg-event-chip[data-kind="reassess"] .tg-event-chip-dot {
+  background: var(--accent);
+  box-shadow: 0 0 5px rgba(74, 168, 255, 0.4);
+}
+.tg-event-chip[data-kind="supersede"] .tg-event-chip-dot {
+  background: var(--tier-medium);
+  box-shadow: 0 0 5px var(--tier-medium-glow);
+}
+.tg-event-chip[data-kind="resolve"] .tg-event-chip-dot {
+  background: var(--tier-low);
+  box-shadow: 0 0 5px var(--tier-low-glow);
+}
+.tg-event-chip[data-kind="expire"] .tg-event-chip-dot {
+  background: var(--fg-faint);
+}
+/* optional tier on the dot wins over the kind color (set via data-tier in JS) */
+.tg-event-chip-dot[data-tier="LOW"]      { background: var(--tier-low); box-shadow: 0 0 5px var(--tier-low-glow); }
+.tg-event-chip-dot[data-tier="MEDIUM"]   { background: var(--tier-medium); box-shadow: 0 0 5px var(--tier-medium-glow); }
+.tg-event-chip-dot[data-tier="HIGH"]     { background: var(--tier-high); box-shadow: 0 0 5px var(--tier-high-glow); }
+.tg-event-chip-dot[data-tier="CRITICAL"] { background: var(--tier-critical); box-shadow: 0 0 5px var(--tier-critical-glow); }
+.tg-event-chip-dot[data-tier="UNKNOWN"]  { background: var(--tier-unknown); box-shadow: 0 0 5px var(--tier-unknown-glow); }
 
 /* ============================================================
    CONFIRM BUTTON (shared by advisory + briefing)
@@ -687,6 +718,359 @@ body {
   transition: filter var(--t-base) var(--t-ease),
               opacity var(--t-base) var(--t-ease);
 }
+
+/* ============================================================
+   ADVISORY LIFECYCLE — Acknowledge / Re-assess / reason chips,
+   origin + lifecycle tags, evidence panel, SURFACE_CONFLICT columns
+   ============================================================ */
+
+/* Acknowledge reuses the .tg-confirm-btn primary styling (loud). */
+.tg-ack-btn.is-confirmed { /* inherits .tg-confirm-btn.is-confirmed */ }
+
+/* Re-assess button — neutral tertiary action: like dismiss but accent-tinted
+   on hover, signalling "recompute" rather than "reject". */
+.tg-reassess-btn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--t-ease),
+              border-color var(--t-fast) var(--t-ease),
+              color var(--t-fast) var(--t-ease);
+}
+.tg-reassess-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(74, 168, 255, 0.08);
+}
+.tg-reassess-btn:disabled { cursor: default; opacity: 0.85; }
+.tg-reassess-btn.is-pending { opacity: 0.6; cursor: progress; }
+.tg-reassess-btn.is-error {
+  color: var(--tier-high);
+  border-color: var(--tier-high);
+}
+
+/* Dismiss "armed" — chips are showing, awaiting a reason pick. */
+.tg-dismiss-btn.is-armed {
+  color: var(--tier-high);
+  border-color: var(--tier-high);
+  background: var(--tier-high-glow);
+}
+
+/* SURFACE_CONFLICT cards de-emphasize plain Acknowledge and lift Re-assess:
+   the controller should pick a side or recompute, not just "I see it". */
+.tg-advisory-card.is-deweight-ack .tg-ack-btn {
+  opacity: 0.6;
+  border-color: var(--border);
+  background: transparent;
+}
+.tg-advisory-card.is-deweight-ack .tg-reassess-btn {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* canned-reason chip row (revealed when Dismiss is armed) */
+.tg-adv-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.tg-reason-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--fg-dim);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-bright);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color var(--t-fast) var(--t-ease),
+              border-color var(--t-fast) var(--t-ease),
+              background var(--t-fast) var(--t-ease);
+}
+.tg-reason-chip:hover {
+  color: var(--tier-high);
+  border-color: var(--tier-high);
+  background: var(--tier-high-glow);
+}
+
+/* origin tag on a new card: RE-ASSESSED / ESCALATED */
+.tg-adv-origin {
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.tg-adv-origin[data-kind="reassess"] {
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  background: rgba(74, 168, 255, 0.08);
+}
+.tg-adv-origin[data-kind="escalate"] {
+  color: var(--tier-high);
+  border: 1px solid var(--tier-high);
+  background: var(--tier-high-glow);
+}
+
+/* lifecycle tag appended to the head: SUPERSEDED / RESOLVED / EXPIRED */
+.tg-adv-lifecycle-tag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.tg-adv-lifecycle-tag[data-kind="superseded"] {
+  color: var(--tier-medium);
+  border: 1px solid var(--tier-medium);
+  background: var(--tier-medium-glow);
+}
+.tg-adv-lifecycle-tag[data-kind="resolved"] {
+  color: var(--tier-low);
+  border: 1px solid var(--tier-low);
+  background: var(--tier-low-glow);
+}
+.tg-adv-lifecycle-tag[data-kind="expired"] {
+  color: var(--fg-faint);
+  border: 1px solid var(--fg-faint);
+}
+
+/* superseded card: dimmed, awaiting fold-away */
+.tg-advisory-card.is-superseded {
+  filter: grayscale(0.7);
+  opacity: 0.55;
+  transition: filter var(--t-base) var(--t-ease),
+              opacity var(--t-base) var(--t-ease);
+}
+/* resolved card: green edge before it folds */
+.tg-advisory-card.is-resolved {
+  border-left-color: var(--tier-low);
+  box-shadow: inset 0 0 16px var(--tier-low-glow);
+  transition: border-left-color var(--t-base) var(--t-ease),
+              box-shadow var(--t-base) var(--t-ease);
+}
+
+/* ---- Tier-1 strip: confidence band + contributing-signal chips ---- */
+.tg-adv-tier1 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tg-adv-conf {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+.tg-adv-conf-label { font-weight: 700; letter-spacing: 0.06em; }
+.tg-adv-conf-num { color: var(--fg-faint); font-size: 10px; }
+.tg-adv-conf[data-level="high"] .tg-adv-conf-label { color: var(--tier-low); }
+.tg-adv-conf[data-level="high"] { border-color: var(--tier-low); }
+.tg-adv-conf[data-level="med"]  .tg-adv-conf-label { color: var(--tier-medium); }
+.tg-adv-conf[data-level="med"]  { border-color: var(--tier-medium); }
+.tg-adv-conf[data-level="low"]  .tg-adv-conf-label { color: var(--fg-dim); }
+
+.tg-adv-sigchips { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+.tg-sig-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px 1px 6px;
+}
+
+/* tier color dot, shared by signal chips and evidence rows (data-tier) */
+.tg-sig-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--fg-faint);
+}
+.tg-sig-dot[data-tier="LOW"]      { background: var(--tier-low); }
+.tg-sig-dot[data-tier="MEDIUM"]   { background: var(--tier-medium); }
+.tg-sig-dot[data-tier="HIGH"]     { background: var(--tier-high); }
+.tg-sig-dot[data-tier="CRITICAL"] { background: var(--tier-critical); }
+.tg-sig-dot[data-tier="UNKNOWN"]  { background: var(--tier-unknown); }
+
+/* ---- Tier-2 expandable EVIDENCE panel ---- */
+.tg-adv-evidence { margin-top: 2px; }
+.tg-evi-toggle {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--fg-dim);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color var(--t-fast) var(--t-ease);
+}
+.tg-evi-toggle:hover { color: var(--fg); }
+.tg-evi-caret { display: inline-block; width: 0.9em; }
+.tg-evi-body {
+  display: none;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+.tg-adv-evidence.is-open .tg-evi-body { display: block; }
+.tg-evi-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 0;
+}
+.tg-evi-row .tg-sig-dot { align-self: center; }
+.tg-evi-id { color: var(--fg); flex: 0 0 auto; }
+.tg-evi-detail { color: var(--fg-dim); }
+
+/* ---- SURFACE_CONFLICT dual-column (equal weight, never favoring a side) ---- */
+.tg-adv-conflict {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 2px;
+}
+.tg-conf-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 7px 9px;
+  background: var(--bg-panel);
+}
+.tg-conf-tier {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.tg-conf-col[data-tier="LOW"]      .tg-conf-tier { color: var(--tier-low); }
+.tg-conf-col[data-tier="MEDIUM"]   .tg-conf-tier { color: var(--tier-medium); }
+.tg-conf-col[data-tier="HIGH"]     .tg-conf-tier { color: var(--tier-high); }
+.tg-conf-col[data-tier="CRITICAL"] .tg-conf-tier { color: var(--tier-critical); }
+.tg-conf-col[data-tier="UNKNOWN"]  .tg-conf-tier { color: var(--tier-unknown); }
+.tg-conf-src {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-faint);
+}
+.tg-conf-claim { font-size: 11.5px; color: var(--fg); }
+.tg-conf-divider {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--tier-high);
+}
+.tg-conf-note {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+
+/* ============================================================
+   REGION INFO (ⓘ) ICONS + shared popover
+   ============================================================ */
+.tg-info-host { display: inline-flex; align-items: center; }
+.tg-info-icon {
+  margin-left: 6px;
+  width: 15px; height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--fg-faint);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--t-fast) var(--t-ease),
+              background var(--t-fast) var(--t-ease);
+}
+.tg-info-icon:hover,
+.tg-info-icon[aria-expanded="true"] {
+  color: var(--accent);
+  background: rgba(74, 168, 255, 0.12);
+}
+.tg-info-icon:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* map overlay info icon — top-right, above the Leaflet panes */
+.tg-map-info {
+  position: absolute;
+  top: 8px; right: 8px;
+  z-index: 500;
+  background: rgba(8, 13, 19, 0.7);
+  border-radius: 50%;
+}
+
+/* quiet zone labels above the event strip / advisory rail */
+.tg-zone-label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.tg-zone-label-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--fg-faint);
+}
+
+.tg-info-pop {
+  position: fixed;
+  z-index: 1000;
+  width: min(320px, 86vw);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-bright);
+  border-radius: 6px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  padding: 12px 14px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-dim);
+  animation: t-slide-up var(--t-fast) var(--t-ease);
+}
+.tg-info-pop-title {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+.tg-info-pop p { margin: 0 0 6px; }
+.tg-info-pop p:last-child { margin-bottom: 0; }
 
 /* ============================================================
    BRIEFING — launch button + slide-out panel
@@ -907,6 +1291,10 @@ body {
 .tg-disclaimer {
   height: var(--footer-h);
   flex: 0 0 auto;
+  /* stays visible while the page scrolls (demo requirement D10) */
+  position: sticky;
+  bottom: 0;
+  z-index: 900;
   display: flex;
   align-items: center;
   justify-content: center;

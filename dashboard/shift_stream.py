@@ -5,12 +5,16 @@ This is the one place the four-field XADD schema lives, shared by every writer
 shape with the frontend agent:
 
     {"timestamp": "<ISO8601Z>", "kind": "<str>", "summary": "<str>",
-     "ref": "<str|null>"}
+     "ref": "<str|null>", "tier": "<str|null>"}
 
-`kind` ∈ {tier_change, advisory, briefing, airport_switch, confirm, dismiss}. A
-null `ref` is written as the literal string ``"null"`` on the wire (Redis Stream
-fields are strings) and decoded back to ``None`` on read, so the SSE payload
-matches the JSON contract exactly.
+`kind` ∈ {tier_change, advisory, briefing, airport_switch, confirm, dismiss,
+reassess, supersede, resolve, expire} (v1.2 lifecycle kinds appended; the
+frontend tolerates unknown kinds). A null `ref` is written as the literal string
+``"null"`` on the wire (Redis Stream fields are strings) and decoded back to
+``None`` on read, so the SSE payload matches the JSON contract exactly. ``tier``
+is an optional fifth field (v1.2): present on tier_change so the event strip can
+colour the row by tier; absent everywhere it carried no tier before, decoded
+back to None via the same "null" sentinel.
 """
 
 from datetime import datetime, timezone
@@ -38,9 +42,15 @@ KIND_AIRPORT_SWITCH = "airport_switch"
 # (confirm) or rejects the escalation (dismiss). Both feed the shift narrative.
 KIND_CONFIRM = "confirm"
 KIND_DISMISS = "dismiss"
+# v1.2 lifecycle kinds (Orchestrator-owned state transitions + re-assessment).
+KIND_REASSESS = "reassess"
+KIND_SUPERSEDE = "supersede"
+KIND_RESOLVE = "resolve"
+KIND_EXPIRE = "expire"
 
-# Sentinel written for a null ref (stream fields cannot be None).
+# Sentinel written for a null ref / null tier (stream fields cannot be None).
 _NULL_REF = "null"
+_NULL_TIER = "null"
 
 
 def _utc_now_iso() -> str:
@@ -55,17 +65,21 @@ def xadd_shift_event(
     summary: str,
     ref: Optional[str] = None,
     timestamp: Optional[str] = None,
+    tier: Optional[str] = None,
 ) -> str:
     """Append one shift event to the stream, returning the entry id.
 
-    ``timestamp`` defaults to now (UTC ISO 8601). ``ref=None`` is stored as the
-    ``"null"`` sentinel and decoded back to None by ``decode_entry``.
+    ``timestamp`` defaults to now (UTC ISO 8601). ``ref=None`` / ``tier=None``
+    are stored as the ``"null"`` sentinel and decoded back to None by
+    ``decode_entry``. ``tier`` is the optional v1.2 fifth field (e.g. the new
+    tier on a tier_change) so the event strip can colour the row.
     """
     fields = {
         "timestamp": timestamp or _utc_now_iso(),
         "kind": kind,
         "summary": summary,
         "ref": _NULL_REF if ref is None else ref,
+        "tier": _NULL_TIER if tier is None else tier,
     }
     return redis_client.xadd(
         SHIFT_EVENTS_KEY, fields, maxlen=SHIFT_EVENTS_MAXLEN, approximate=True
@@ -80,11 +94,15 @@ def decode_entry(fields: dict[Any, Any]) -> dict[str, Any]:
     """
     decoded = {_as_str(k): _as_str(v) for k, v in fields.items()}
     ref = decoded.get("ref", _NULL_REF)
+    # tier is optional (pre-v1.2 entries have no tier field); a missing field and
+    # the "null" sentinel both decode to None so the SSE payload is uniform.
+    tier = decoded.get("tier", _NULL_TIER)
     return {
         "timestamp": decoded.get("timestamp", ""),
         "kind": decoded.get("kind", ""),
         "summary": decoded.get("summary", ""),
         "ref": None if ref == _NULL_REF else ref,
+        "tier": None if tier == _NULL_TIER else tier,
     }
 
 

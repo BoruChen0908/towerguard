@@ -259,3 +259,54 @@ SET towerguard:confirmed:{advisory_id} "<ISO 8601 UTC 時間戳>"
 
 *TowerGuard — AI-augmented decision support for understaffed ATC towers*
 *Katherine & Bo-Ru — BU MSBA, USAII Global AI Hackathon 2026*
+
+---
+
+## 7. v1.2 提案（待 Katherine 確認）
+
+> 核心原則：**Re-surface on a change in the world, never on the passage of time.**
+> 警示因「世界改變」（tier 惡化、新衝突對、資料恢復）而重現，永不因「時間經過」而重複。
+> 設計全文見 `docs/advisory-lifecycle-design.md`。以下是需要 Katherine 點頭的契約增量，全部 **向後相容**（既有欄位/topic 不動）。
+
+### 7.1 Advisory 新欄位（全 optional，缺席容忍）
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| `condition_key` | string | `{airport}:{signals}:{sorted_callsigns}`；同一對機去重的依據，順序無關 |
+| `supersedes` | array[string] | 此卡取代的舊 advisory_id（tier 惡化或 re-assess 重發時帶） |
+| `in_response_to` | string \| null | 對應的 `request_id`（只有 re-assess 重發的卡才有） |
+| `evidence` | object | `{signals:[{event_type, alert_id, tier, key_values{}, detail}]}`；三模組決策時快照，`detail` 一句話含數值對閾值 |
+| `conflict` | object | 僅 SURFACE_CONFLICT：`{between:[{event_type, alert_id, tier, claim}×2], note}`；恰兩個矛盾訊號，AI 拒絕仲裁 |
+
+### 7.2 兩個新 topic（pub/sub）
+
+| Topic | 型態 | 發布者 | 訂閱者 | 說明 |
+|-------|------|--------|--------|------|
+| `towerguard:reassess_request` | pub/sub | Dashboard | Orchestrator | payload `{type:"reassess_request", request_id:"RAS-<4hex>", advisory_id, requested_at, reason:"controller_manual"}`；Orchestrator **必回**（永不靜默） |
+| `towerguard:advisory_lifecycle` | pub/sub | Orchestrator | Dashboard | payload `{type:"advisory_lifecycle", advisory_id, new_state:"resolved"\|"superseded"\|"expired", in_response_to, reason, timestamp}` |
+
+### 7.3 新 key（Orchestrator 擁有）
+
+| Key | 型態 | 寫者 | 說明 |
+|-----|------|------|------|
+| `towerguard:advisory:state:{id}` | String（`SET`） | Orchestrator | `superseded`\|`resolved`\|`expired`。**與 dashboard 的 `confirmed:`/`dismissed:` 是不同 key**，雙寫者不搶，人的決定永不被覆寫 |
+| `towerguard:dismiss_reason:{id}` | String（`SET`） | Dashboard | dismiss 罐頭理由（`already_separated`\|`data_stale`\|`visual_separation`\|`false_geometry`\|`other`）；`dismissed:{id}` 本身仍是純 ISO 時間戳，理由另存不污染契約 |
+| `towerguard:reassess_count:{id}` | String（`INCR`） | Dashboard | 每張 advisory 的 re-assess 次數，**上限 2**，第 3 次回 429 `{"error":"reassess_limit"}` |
+| `towerguard:demo:{flag}` | String（`SET`/`DEL`） | Dashboard | 導演開關 `flag ∈ degraded\|sparse\|workload_surge`；runner 每 cycle 讀 |
+
+### 7.4 兩個契約常數
+
+| 常數 | 值 | 用途 |
+|------|----|----|
+| cooldown | **300 s** | 人處理後同 condition 同 tier 的冷卻；tier 惡化立即穿透 |
+| reassess timeout | **10 s** | 卡片端等待重評上限；逾時標「re-assess timed out」、fail-safe 不收卡 |
+
+### 7.5 shift_events 補強（§5 細化）
+
+- 新 `kind`：`reassess` / `supersede` / `resolve` / `expire`（前端容忍未知 kind）
+- 新增 optional 第五欄 `tier`（tier_change 帶新 tier，事件條才能上真色）；缺席容忍，沿用 `"null"` sentinel 模式解碼回 `None`
+
+### 7.6 建議：briefing_id 與 advisory_id 分離
+
+- briefing 改為動態組裝（五段從 shift_events 真實內容生成），不再綁單一 advisory
+- 建議獨立 `briefing_id`（`BRF-####`），與 `advisory_id` 分離；過渡期 payload 仍保留 `advisory_id` 欄位以相容現有 SSE 契約
