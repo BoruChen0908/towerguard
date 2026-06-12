@@ -7,9 +7,12 @@ appends one deterministically converging pair that is guaranteed to trigger a
 HIGH conflict within ~60-90 s. This is the mock basis for the 6/19 integration
 test.
 
-The converging pair is synthesized fresh every cycle (not jittered) so the
-conflict timing stays deterministic regardless of jitter; the eight fixture
-aircraft are the moving "background" traffic.
+The converging pair advances continuously across cycles (not respawned at the
+start geometry every cycle): module-level state pushes the pair forward by one
+cycle's worth of travel each call, so the dashboard shows a real closing
+approach and the time-to-violation ticks down cycle by cycle. Once the pair has
+closed past the 3 NM minimum it respawns to the start geometry and the loop
+repeats. The eight fixture aircraft are the moving "background" traffic.
 
 Units note: parsed OpenSky ``velocity`` is consumed as knots throughout the
 pipeline (conflict_geometry converts it with a kts→NM/s factor). OpenSky's raw
@@ -41,6 +44,17 @@ _CONVERGE_SPEED_KTS = 180.0
 _CONVERGE_START_SEP_NM = 10.0
 _CONVERGE_ALT_FT = 4000.0
 _NM_PER_DEG_LAT = 60.0
+
+# Seconds the converging pair advances per cycle (matches the runner's 60 s
+# publish cadence). Each cycle the pair closes 2 * 180 kt = 0.1 NM/s, so the
+# 10 NM start gap shrinks 6 NM per cycle: 10 → 4 → respawn. The first violation
+# (3 NM breach) lands at 70 s on the spawn cycle (HIGH band) and at 10 s one
+# cycle later (CRITICAL), giving the demo its HIGH→CRITICAL narrative.
+_CONVERGE_CYCLE_SECONDS = 60.0
+
+# Module-level state: seconds the converging pair has been advancing since its
+# last spawn. Lives across cycles so the approach is continuous, not reset.
+_converge_elapsed_s = 0.0
 
 
 def _parse_fixture_row(row: list[Any]) -> dict[str, Any]:
@@ -86,13 +100,21 @@ def _jitter(state: dict[str, Any], rng: random.Random) -> dict[str, Any]:
     return jittered
 
 
-def _converging_pair(lat0: float, lon0: float) -> list[dict[str, Any]]:
-    """Two head-on aircraft straddling (lat0, lon0), 10 NM apart, 180 kt each.
+def _converging_pair(
+    lat0: float,
+    lon0: float,
+    elapsed_s: float = 0.0,
+) -> list[dict[str, Any]]:
+    """Two head-on aircraft straddling (lat0, lon0), closing at 180 kt each.
 
-    First breaches the 3 NM minimum at ~70 s with zero vertical gap → guaranteed
-    HIGH conflict every cycle.
+    At ``elapsed_s == 0`` they are 10 NM apart and first breach the 3 NM minimum
+    at ~70 s with zero vertical gap → HIGH conflict on the spawn cycle. As
+    ``elapsed_s`` grows the pair has already closed in by that many seconds, so
+    the remaining gap (and the time-to-violation) shrinks accordingly.
     """
-    half_sep_deg = _CONVERGE_START_SEP_NM / 2.0 / _NM_PER_DEG_LAT
+    # Each plane has closed (speed * elapsed) toward the centre line.
+    closed_nm = _CONVERGE_SPEED_KTS / 3600.0 * elapsed_s
+    half_sep_deg = max(0.0, _CONVERGE_START_SEP_NM / 2.0 - closed_nm) / _NM_PER_DEG_LAT
     north = {
         "icao24": "demo01",
         "callsign": "DMO901",
@@ -120,6 +142,12 @@ def _converging_pair(lat0: float, lon0: float) -> list[dict[str, Any]]:
     return [north, south]
 
 
+def reset_converge_state() -> None:
+    """Reset the converging pair to its spawn geometry (test helper)."""
+    global _converge_elapsed_s
+    _converge_elapsed_s = 0.0
+
+
 def demo_states(
     lat0: float,
     lon0: float,
@@ -127,10 +155,28 @@ def demo_states(
 ) -> list[dict[str, Any]]:
     """Build one cycle's DEMO state vectors: jittered background + converge pair.
 
+    The converging pair advances by one cycle (``_CONVERGE_CYCLE_SECONDS``) of
+    closing per call via module-level state, so the approach is continuous and
+    the time-to-violation ticks down across cycles. Once the pair has closed in
+    past the 3 NM minimum it respawns to the start geometry.
+
     Args:
         lat0, lon0: airport centre, used to anchor the converging pair.
         rng: optional Random for deterministic tests; defaults to module random.
     """
+    global _converge_elapsed_s
     r = rng or random
     background = [_jitter(s, r) for s in _load_background()]
-    return background + _converging_pair(lat0, lon0)
+
+    # Remaining gap before this cycle's snapshot; once it has shrunk to the
+    # terminal minimum the pair has passed through the conflict → respawn.
+    remaining_sep_nm = (
+        _CONVERGE_START_SEP_NM
+        - _CONVERGE_SPEED_KTS / 3600.0 * _converge_elapsed_s * 2.0
+    )
+    if remaining_sep_nm <= 3.0:
+        _converge_elapsed_s = 0.0
+
+    pair = _converging_pair(lat0, lon0, _converge_elapsed_s)
+    _converge_elapsed_s += _CONVERGE_CYCLE_SECONDS
+    return background + pair

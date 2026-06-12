@@ -27,6 +27,15 @@ def fake_redis():
     return fakeredis.FakeRedis(decode_responses=True)
 
 
+@pytest.fixture(autouse=True)
+def _reset_converge_state():
+    """The converging pair advances via module-level state; reset before each
+    test so cross-cycle continuity does not leak between tests."""
+    demo_source.reset_converge_state()
+    yield
+    demo_source.reset_converge_state()
+
+
 def _sample_states() -> list[dict]:
     return [
         {
@@ -115,6 +124,8 @@ class TestDemoMode:
         # The overall tier may be CRITICAL because the fixture already contains a
         # near-pair (UAL412/AAL891 ~2.3 NM apart) — that is pre-existing fixture
         # data, not the converging-pair requirement.
+        # On the spawn cycle (state reset by the autouse fixture) the pair is at
+        # its 10 NM start geometry, so the first violation lands in the HIGH band.
         converging = [
             c
             for c in cg["all_conflicts"]
@@ -130,7 +141,7 @@ class TestDemoMode:
 
 class TestDemoSource:
     def test_converging_pair_first_violation_in_high_band(self):
-        """The synthesized pair must first violate in the 61-90 s HIGH band."""
+        """At spawn (elapsed=0) the pair first violates in the 61-90 s HIGH band."""
         from modules.conflict_geometry import _check_pair
 
         pair = demo_source._converging_pair(40.64, -73.78)
@@ -138,6 +149,47 @@ class TestDemoSource:
         assert result is not None
         ttv = result["time_to_violation_seconds"]
         assert 60 < ttv <= 90
+
+    def test_converging_pair_advances_continuously_then_respawns(self):
+        """The pair closes across cycles (ttv shrinks) then respawns to the start.
+
+        Spawn cycle lands in the HIGH band; the next cycle's snapshot has the
+        pair 6 NM closer so the time-to-violation drops into the CRITICAL band;
+        the following cycle respawns to the start geometry and the loop repeats.
+        """
+        from modules.conflict_geometry import _check_pair
+
+        def cycle_ttv() -> int:
+            states = demo_source.demo_states(40.64, -73.78)
+            pair = [s for s in states if s.get("callsign") in ("DMO901", "DMO902")]
+            result = _check_pair(pair[0], pair[1])
+            assert result is not None
+            return result["time_to_violation_seconds"]
+
+        demo_source.reset_converge_state()
+        first = cycle_ttv()
+        second = cycle_ttv()
+        third = cycle_ttv()
+
+        # Cycle 0: HIGH band. Cycle 1: closer, so a smaller (CRITICAL) ttv.
+        assert 60 < first <= 90
+        assert second < first
+        assert second <= 60
+        # Cycle 2: respawned back to the start geometry → HIGH band again.
+        assert third == first
+
+    def test_converging_pair_state_is_continuous(self):
+        """Two successive cycles move the pair closer (smaller half-separation)."""
+        demo_source.reset_converge_state()
+        s0 = demo_source.demo_states(40.64, -73.78)
+        s1 = demo_source.demo_states(40.64, -73.78)
+
+        def half_sep(states: list[dict]) -> float:
+            north = next(s for s in states if s["callsign"] == "DMO901")
+            south = next(s for s in states if s["callsign"] == "DMO902")
+            return (north["latitude"] - south["latitude"]) / 2.0
+
+        assert half_sep(s1) < half_sep(s0)
 
     def test_jitter_is_immutable(self):
         rng = random.Random(42)

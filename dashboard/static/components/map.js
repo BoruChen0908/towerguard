@@ -1,7 +1,18 @@
 // map.js — Leaflet map: aircraft markers, conflict highlighting, range ring
+//
+// Markers animate via client-side dead reckoning: between the 60 s-apart
+// snapshots a 1 s tick extrapolates each aircraft along its last-known
+// heading/velocity (constant-velocity straight line — the same assumption the
+// backend conflict module uses). A CSS transform transition smooths each step.
 
 const NM_TO_M = 1852; // nautical mile -> meters
 const RANGE_NM = 50;
+
+// --- dead-reckoning constants ---
+const TICK_MS = 1000; // extrapolation cadence
+const MAX_EXTRAPOLATE_S = 120; // never project further than this past a snapshot
+const STALE_S = 90; // no fresh snapshot for this long → freeze (don't keep flying)
+const NM_PER_DEG_LAT = 60.0; // matches conflict_geometry._NM_PER_DEG_LAT
 
 // Approximate airport centers (lat, lon) for known demo airports.
 // Falls back to first aircraft / world view if unknown.
@@ -13,6 +24,29 @@ const AIRPORTS = {
   KATL: [33.6407, -84.4277],
   KLGA: [40.7769, -73.8740],
 };
+
+/**
+ * Dead-reckon a position forward from a snapshot anchor.
+ * Heading is degrees clockwise from north (0°=N), constant velocity.
+ *
+ * @param {{lat:number, lon:number, velocity_kt:number, heading:number}} anchor
+ * @param {number} dt_s seconds elapsed since the anchor snapshot
+ * @returns {[number, number]} extrapolated [lat, lon]
+ */
+function extrapolate(anchor, dt_s) {
+  const kt = Number(anchor.velocity_kt);
+  const hdg = Number(anchor.heading);
+  if (!Number.isFinite(kt) || !Number.isFinite(hdg) || kt <= 0) {
+    return [anchor.lat, anchor.lon]; // no usable kinematics → hold position
+  }
+  const nm = (kt / 3600) * dt_s; // distance travelled (NM)
+  const rad = (hdg * Math.PI) / 180;
+  const dLat = (nm * Math.cos(rad)) / NM_PER_DEG_LAT;
+  const cosLat = Math.cos((anchor.lat * Math.PI) / 180);
+  const dLon =
+    cosLat !== 0 ? (nm * Math.sin(rad)) / (NM_PER_DEG_LAT * cosLat) : 0;
+  return [anchor.lat + dLat, anchor.lon + dLon];
+}
 
 export function createMap(elId) {
   const map = L.map(elId, {
@@ -31,9 +65,11 @@ export function createMap(elId) {
     }
   ).addTo(map);
 
-  const markers = new Map(); // icao24 -> { marker, callsign }
+  // icao24 -> { marker, callsign, anchor:{lat,lon,velocity_kt,heading}, snapMs }
+  const markers = new Map();
   let rangeRing = null;
   let conflictLines = [];
+  let conflictPair = []; // callsigns of the active conflict pair, or []
   let centered = false;
   let airportCenter = null;
 
@@ -83,11 +119,58 @@ export function createMap(elId) {
     }
   }
 
+  /** Current displayed position of an aircraft entry: the dead-reckoned point.
+   *  Capped at MAX_EXTRAPOLATE_S; once stale (>STALE_S) the extrapolation is
+   *  frozen at the STALE_S mark so a dropped feed doesn't fly markers away. */
+  function displayLatLng(entry, nowMs) {
+    const dt = (nowMs - entry.snapMs) / 1000;
+    if (dt <= 0) return [entry.anchor.lat, entry.anchor.lon];
+    const effective = dt > STALE_S ? STALE_S : Math.min(dt, MAX_EXTRAPOLATE_S);
+    return extrapolate(entry.anchor, effective);
+  }
+
+  /** Redraw the conflict polyline from the current (animated) marker positions. */
+  function refreshConflictLine() {
+    for (const ln of conflictLines) map.removeLayer(ln);
+    conflictLines = [];
+    if (conflictPair.length !== 2) return;
+
+    const pairSet = new Set(conflictPair);
+    const positions = [];
+    for (const [, entry] of markers) {
+      if (entry.callsign && pairSet.has(entry.callsign)) {
+        positions.push(entry.marker.getLatLng());
+      }
+    }
+    if (positions.length === 2) {
+      conflictLines.push(
+        L.polyline(positions, {
+          color: "#ff4d4d",
+          weight: 2,
+          opacity: 0.9,
+          dashArray: "6 6",
+          interactive: false,
+        }).addTo(map)
+      );
+    }
+  }
+
+  /** 1 s dead-reckoning tick: advance every marker, then redraw the line. */
+  function tick() {
+    const nowMs = Date.now();
+    for (const [, entry] of markers) {
+      const [lat, lon] = displayLatLng(entry, nowMs);
+      entry.marker.setLatLng([lat, lon]);
+    }
+    refreshConflictLine();
+  }
+
   /** Render an aircraft_snapshot: {airport, timestamp, aircraft:[...]}. */
   function updateAircraft(snapshot, conflictPairCallsigns) {
     const list = Array.isArray(snapshot.aircraft) ? snapshot.aircraft : [];
     const conflictSet = new Set(conflictPairCallsigns || []);
     const seen = new Set();
+    const nowMs = Date.now();
 
     if (snapshot.airport) {
       const first = list[0];
@@ -102,12 +185,22 @@ export function createMap(elId) {
 
       const isConflict = ac.callsign && conflictSet.has(ac.callsign);
       const existing = markers.get(id);
+      // Re-anchor to the fresh snapshot position; the CSS transition absorbs
+      // the small gap between the extrapolated point and the new truth.
+      const anchor = {
+        lat: ac.lat,
+        lon: ac.lon,
+        velocity_kt: ac.velocity_kt,
+        heading: ac.heading,
+      };
 
       if (existing) {
         existing.marker.setLatLng([ac.lat, ac.lon]);
         existing.marker.setIcon(rotatedIcon(ac.heading, isConflict));
         existing.marker.setTooltipContent(tooltip(ac));
         existing.callsign = ac.callsign;
+        existing.anchor = anchor;
+        existing.snapMs = nowMs;
       } else {
         const marker = L.marker([ac.lat, ac.lon], {
           icon: rotatedIcon(ac.heading, isConflict),
@@ -118,7 +211,7 @@ export function createMap(elId) {
           className: "tg-ac-tooltip",
           opacity: 1,
         });
-        markers.set(id, { marker, callsign: ac.callsign });
+        markers.set(id, { marker, callsign: ac.callsign, anchor, snapMs: nowMs });
       }
     }
 
@@ -129,18 +222,16 @@ export function createMap(elId) {
         markers.delete(id);
       }
     }
+
+    refreshConflictLine();
   }
 
   /** Highlight a conflict pair: recolor markers + draw red dashed line.
    *  callsigns = [csA, csB] from closest_pair; null/empty clears lines. */
   function setConflict(callsigns) {
-    // clear previous lines
-    for (const ln of conflictLines) map.removeLayer(ln);
-    conflictLines = [];
-
     const pair = Array.isArray(callsigns) ? callsigns : [];
+    conflictPair = pair.length === 2 ? pair : [];
     const pairSet = new Set(pair);
-    const positions = [];
 
     for (const [, entry] of markers) {
       const isC = entry.callsign && pairSet.has(entry.callsign);
@@ -149,20 +240,22 @@ export function createMap(elId) {
         const tri = el.querySelector(".tg-ac");
         if (tri) tri.classList.toggle("is-conflict", !!isC);
       }
-      if (isC) positions.push(entry.marker.getLatLng());
     }
 
-    if (positions.length === 2) {
-      const line = L.polyline(positions, {
-        color: "#ff4d4d",
-        weight: 2,
-        opacity: 0.9,
-        dashArray: "6 6",
-        interactive: false,
-      }).addTo(map);
-      conflictLines.push(line);
-    }
+    refreshConflictLine();
   }
 
-  return { map, setAirport, updateAircraft, setConflict };
+  // Start the dead-reckoning loop. Markers without fresh snapshots simply hold
+  // (no aircraft yet → empty loop body, cheap).
+  const tickTimer = setInterval(tick, TICK_MS);
+
+  return {
+    map,
+    setAirport,
+    updateAircraft,
+    setConflict,
+    stop() {
+      clearInterval(tickTimer);
+    },
+  };
 }
