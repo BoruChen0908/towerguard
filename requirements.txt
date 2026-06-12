@@ -1,0 +1,8 @@
+requests
+redis
+fakeredis
+pytest
+pytest-cov
+python-dotenv
+ruff
+pypdf
