@@ -95,8 +95,10 @@ export function createMap(elId) {
     );
   }
 
-  /** Set / refresh the 50NM range ring at the airport center. */
-  function setAirport(code, fallbackLatLon) {
+  /** Set / refresh the 50NM range ring at the airport center.
+   *  @param {boolean} [recenter] force the view to the new center even if the
+   *         map was already centered (used by the airport switcher). */
+  function setAirport(code, fallbackLatLon, recenter = false) {
     const center = AIRPORTS[code] || fallbackLatLon || null;
     if (!center) return;
     airportCenter = center;
@@ -113,10 +115,25 @@ export function createMap(elId) {
       interactive: false,
     }).addTo(map);
 
-    if (!centered) {
+    if (!centered || recenter) {
       map.setView(center, 9);
       centered = true;
     }
+  }
+
+  /** Recenter on a known airport immediately (airport switch). Clears any
+   *  stale fleet first so the old airport's markers don't linger mid-switch. */
+  function recenterTo(code) {
+    clearAircraft();
+    setAirport(code, null, true);
+  }
+
+  /** Drop all aircraft markers + the conflict line (airport switch / reset). */
+  function clearAircraft() {
+    for (const [, entry] of markers) map.removeLayer(entry.marker);
+    markers.clear();
+    conflictPair = [];
+    refreshConflictLine();
   }
 
   /** Current displayed position of an aircraft entry: the dead-reckoned point.
@@ -252,6 +269,8 @@ export function createMap(elId) {
   return {
     map,
     setAirport,
+    recenterTo,
+    clearAircraft,
     updateAircraft,
     setConflict,
     stop() {

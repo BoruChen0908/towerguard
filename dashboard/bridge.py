@@ -13,6 +13,12 @@ delivering messages with no polling.
 New clients are seeded with the cached last message of each type before they
 start receiving live traffic, so a freshly opened dashboard renders immediately
 instead of waiting up to a full 60 s runner cycle.
+
+Beyond pub/sub, a second background thread tails the ``towerguard:shift_events``
+Redis Stream (XREAD BLOCK) and fans each new entry out as a ``shift_event`` SSE
+message. Shift events are a chronological log, not a last-of-type snapshot, so
+they are NOT stored in the last-message cache; new clients instead replay the
+stream's most recent entries via ``replay_shift_events`` (see server.py).
 """
 
 import json
@@ -25,7 +31,13 @@ from typing import Optional
 
 import redis
 
+from dashboard.shift_stream import (
+    SHIFT_EVENTS_KEY,
+    decode_entry,
+    read_recent,
+)
 from dashboard.topics import (
+    EVENT_SHIFT_EVENT,
     SUBSCRIBED_TOPICS,
     TOPIC_BRIEFING,
     TOPIC_TO_EVENT,
@@ -60,13 +72,18 @@ class PubSubBridge:
         self._clients: set[Queue[SSEMessage]] = set()
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
+        self._stream_thread: Optional[threading.Thread] = None
         self._pubsub: Optional[redis.client.PubSub] = None
         self._stop = threading.Event()
 
     # -- lifecycle ---------------------------------------------------------
 
     def start(self) -> None:
-        """Subscribe and spawn the background listen thread (idempotent)."""
+        """Subscribe and spawn the background listen threads (idempotent).
+
+        Two threads: one tails Redis pub/sub for the six module/advisory event
+        types; the other tails the shift-events Redis Stream.
+        """
         if self._thread is not None:
             return
         self._pubsub = self._redis.pubsub(ignore_subscribe_messages=True)
@@ -75,10 +92,14 @@ class PubSubBridge:
             target=self._listen_loop, name="towerguard-pubsub", daemon=True
         )
         self._thread.start()
+        self._stream_thread = threading.Thread(
+            target=self._stream_loop, name="towerguard-shift-stream", daemon=True
+        )
+        self._stream_thread.start()
         logger.info("PubSubBridge subscribed to %s", ", ".join(SUBSCRIBED_TOPICS))
 
     def stop(self) -> None:
-        """Signal the listen thread to exit and tear down the subscription."""
+        """Signal the listen threads to exit and tear down the subscription."""
         self._stop.set()
         if self._pubsub is not None:
             # Closing the connection unblocks the listen() call.
@@ -88,6 +109,8 @@ class PubSubBridge:
                 logger.debug("pubsub close during shutdown raised: %s", exc)
         if self._thread is not None:
             self._thread.join(timeout=2.0)
+        if self._stream_thread is not None:
+            self._stream_thread.join(timeout=2.0)
 
     # -- client registration ----------------------------------------------
 
@@ -110,6 +133,26 @@ class PubSubBridge:
         """Snapshot of the current last-message cache (used in tests)."""
         with self._lock:
             return list(self._cache.values())
+
+    def replay_shift_events(self) -> list[SSEMessage]:
+        """Most recent shift-stream entries as SSEMessages, oldest→newest.
+
+        The server enqueues these onto a new client's queue AFTER the cached
+        last-message replay, so the dashboard shows recent shift-log history in
+        chronological order on connect (contract: most recent 20).
+        """
+        try:
+            entries = read_recent(self._redis)
+        except Exception as exc:  # pragma: no cover - replay is best-effort
+            logger.debug("shift-events replay read failed: %s", exc)
+            return []
+        return [
+            SSEMessage(
+                event=EVENT_SHIFT_EVENT,
+                data=json.dumps(entry, separators=(",", ":")),
+            )
+            for entry in entries
+        ]
 
     # -- listen loop -------------------------------------------------------
 
@@ -135,6 +178,41 @@ class PubSubBridge:
             if message is not None:
                 self._dispatch(message)
 
+    def _stream_loop(self) -> None:
+        """Tail the shift-events Redis Stream, fanning new entries out as SSE.
+
+        Blocks on XREAD with a short timeout so _stop is honoured promptly. We
+        track the last-seen entry id and start from "$" (new entries only) — the
+        backlog is delivered to clients via replay_shift_events on connect, not
+        re-streamed here.
+        """
+        last_id = "$"
+        while not self._stop.is_set():
+            try:
+                result = self._redis.xread(
+                    {SHIFT_EVENTS_KEY: last_id}, block=1000, count=100
+                )
+            except Exception as exc:  # pragma: no cover - thread-level guard
+                if self._stop.is_set():
+                    break
+                logger.error("shift-stream read loop error: %s", exc, exc_info=True)
+                time.sleep(1.0)
+                continue
+            if not result:
+                continue
+            # result: [(stream_key, [(entry_id, {fields}), ...])]
+            for _stream_key, entries in result:
+                for entry_id, fields in entries:
+                    last_id = entry_id
+                    entry = decode_entry(fields)
+                    message = SSEMessage(
+                        event=EVENT_SHIFT_EVENT,
+                        data=json.dumps(entry, separators=(",", ":")),
+                    )
+                    # Shift events are a log, not a last-of-type snapshot — do
+                    # not cache; new clients get the backlog via XRANGE replay.
+                    self._dispatch(message, cache=False)
+
     @staticmethod
     def _to_sse_message(raw: dict) -> Optional[SSEMessage]:
         """Convert a raw redis-py pub/sub message into an SSEMessage.
@@ -156,14 +234,17 @@ class PubSubBridge:
             data = _normalise_briefing(data)
         return SSEMessage(event=event, data=data)
 
-    def _dispatch(self, message: SSEMessage) -> None:
-        """Cache the message and fan it out to every client queue.
+    def _dispatch(self, message: SSEMessage, cache: bool = True) -> None:
+        """Fan a message out to every client queue (and cache it by default).
 
-        Runs on the listen thread; queue mutations are scheduled onto the event
+        Runs on a listen thread; queue mutations are scheduled onto the event
         loop with call_soon_threadsafe so asyncio internals stay single-thread.
+        ``cache=False`` is used for shift events, which are a log rather than a
+        last-of-type snapshot and so must not seed the new-client replay cache.
         """
         with self._lock:
-            self._cache[message.event] = message
+            if cache:
+                self._cache[message.event] = message
             clients = list(self._clients)
         for queue in clients:
             self._loop.call_soon_threadsafe(self._offer, queue, message)

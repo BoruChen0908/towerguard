@@ -1,11 +1,17 @@
 """
 TowerGuard runner — W1-5.
 
-60-second synchronous loop:
+Loop (per cycle):
   1. Fetch OpenSky state vectors once (fan-out to all three modules)
   2. Compute Traffic Density, Conflict Geometry, Workload Index
   3. Publish each as JSON to its Redis pub/sub topic
-  4. Sleep until next cycle
+
+Cadence (functional A): the runner does not block for a full 60 s between
+cycles. It wakes every RUNNER_POLL_SECONDS to read towerguard:selected_airport
+(set by the dashboard). If the airport changed it runs an immediate cycle for
+the new airport — re-anchoring the DEMO fleet, resetting the converging-pair
+state, and writing an airport_switch shift event — instead of waiting out the
+remaining 60 s. With no change it keeps the 60 s publish cadence.
 """
 
 import json
@@ -17,6 +23,8 @@ from typing import Any, Optional
 import redis
 
 import config
+from dashboard.shift_stream import KIND_AIRPORT_SWITCH, xadd_shift_event
+from dashboard.topics import SELECTED_AIRPORT_KEY
 from data.opensky import OpenSkyUnavailable, fetch_states
 from modules import conflict_geometry, traffic_density, workload_index
 from modules.envelope import to_json, utc_now_iso
@@ -163,30 +171,86 @@ def _publish_raw(
         logger.error("Failed to publish to %s: %s", topic, exc)
 
 
+def _read_selected_airport(
+    redis_client: redis.Redis,
+    fallback: str,
+) -> str:
+    """Return the dashboard-selected airport, or ``fallback`` if unset/unknown.
+
+    A missing key, a Redis error, or an ICAO not in config all resolve to the
+    fallback so the runner never targets an airport it cannot serve.
+    """
+    try:
+        selected = redis_client.get(SELECTED_AIRPORT_KEY)
+    except Exception as exc:
+        logger.warning("Could not read selected airport: %s", exc)
+        return fallback
+    if selected in config.AIRPORTS:
+        return selected
+    return fallback
+
+
+def _on_airport_switch(redis_client: redis.Redis, new_airport: str) -> None:
+    """Re-anchor the DEMO fleet and log the switch as a shift event.
+
+    Resetting the converging-pair state makes the synthetic fleet re-spawn at
+    the new airport's coordinates on the next cycle (the cycle re-anchors via
+    the airport's lat/lon); the airport_switch shift event records the change.
+    """
+    from modules.demo_source import reset_converge_state
+
+    reset_converge_state()
+    try:
+        xadd_shift_event(
+            redis_client,
+            kind=KIND_AIRPORT_SWITCH,
+            summary=f"Monitoring switched to {new_airport}",
+            ref=None,
+        )
+    except Exception as exc:
+        logger.error("Failed to write airport_switch shift event: %s", exc)
+
+
 def run_forever(airport_icao: str = config.DEFAULT_AIRPORT) -> None:
-    """Main loop — runs until interrupted."""
+    """Main loop — runs until interrupted.
+
+    Wakes every RUNNER_POLL_SECONDS to check the dashboard-selected airport. A
+    change runs an immediate cycle for the new airport; otherwise a full cycle
+    fires once RUNNER_CYCLE_SECONDS has elapsed since the last one.
+    """
     # DEMO_MODE never calls OpenSky, so it does not require OpenSky credentials.
     if not _demo_mode_enabled():
         config.validate_env()
     r = _build_redis_client()
+    # Seed the selection from Redis so a value set before start is honoured;
+    # the CLI/default airport is the fallback.
+    current_airport = _read_selected_airport(r, airport_icao)
     logger.info(
-        "TowerGuard runner starting — airport=%s, cycle=%ss, demo=%s",
-        airport_icao,
+        "TowerGuard runner starting — airport=%s, cycle=%ss, poll=%ss, demo=%s",
+        current_airport,
         config.RUNNER_CYCLE_SECONDS,
+        config.RUNNER_POLL_SECONDS,
         _demo_mode_enabled(),
     )
 
+    last_cycle_at = -float("inf")  # force a cycle on the first iteration
     while True:
-        cycle_start = time.monotonic()
-        try:
-            run_cycle(airport_icao, r)
-        except Exception as exc:
-            logger.error("Unexpected error in cycle: %s", exc, exc_info=True)
+        selected = _read_selected_airport(r, current_airport)
+        switched = selected != current_airport
+        if switched:
+            logger.info("Airport switch detected: %s → %s", current_airport, selected)
+            current_airport = selected
+            _on_airport_switch(r, current_airport)
 
-        elapsed = time.monotonic() - cycle_start
-        sleep_for = max(0.0, config.RUNNER_CYCLE_SECONDS - elapsed)
-        logger.debug("Cycle took %.2fs; sleeping %.2fs", elapsed, sleep_for)
-        time.sleep(sleep_for)
+        due = (time.monotonic() - last_cycle_at) >= config.RUNNER_CYCLE_SECONDS
+        if switched or due:
+            try:
+                run_cycle(current_airport, r)
+            except Exception as exc:
+                logger.error("Unexpected error in cycle: %s", exc, exc_info=True)
+            last_cycle_at = time.monotonic()
+
+        time.sleep(config.RUNNER_POLL_SECONDS)
 
 
 if __name__ == "__main__":

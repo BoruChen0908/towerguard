@@ -6,12 +6,20 @@ Interface contract (frozen with the frontend agent):
   GET  /events                 → SSE stream; `event: <type>\\ndata: <json>\\n\\n`
                                  type ∈ {traffic_density, conflict_geometry,
                                  workload_index, advisory, aircraft_snapshot,
-                                 briefing}. First five forward the Redis topic
-                                 JSON verbatim; briefing data is
-                                 {"advisory_id", "markdown"}.
+                                 briefing, shift_event}. The first five forward
+                                 the Redis topic JSON verbatim; briefing data is
+                                 {"advisory_id", "markdown"}; shift_event data is
+                                 {"timestamp", "kind", "summary", "ref"}. On
+                                 connect, the cached last message of each type is
+                                 replayed, then the most recent 20 shift events.
+  GET  /airports               → {"airports": [{"icao", "name"}...], "selected"}
+  POST /airport/{icao}         → validate icao against config; SET
+                                 towerguard:selected_airport. Returns
+                                 {"airport": "<icao>"}. 404 if unknown.
   POST /confirm/{advisory_id}  → SET towerguard:confirmed:{id} <ISO8601 UTC>,
                                  idempotent (returns the existing timestamp on
                                  repeat). Returns {"advisory_id", "confirmed_at"}.
+  GET  /lineage                → docs/lineage.md as text/markdown; 404 if absent.
   GET  /health                 → {"status": "ok", "redis": bool}
 
 Same-origin only (no CORS). Run with uvicorn on 127.0.0.1:8800.
@@ -25,13 +33,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import redis
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from sse_starlette.sse import EventSourceResponse
 
 import config
 from dashboard.bridge import PubSubBridge
+from dashboard.topics import SELECTED_AIRPORT_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +49,9 @@ CONFIRMED_KEY_PREFIX = "towerguard:confirmed:"
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _INDEX_HTML = _STATIC_DIR / "index.html"
+
+# docs/lineage.md is authored by the frontend agent; we serve it if present.
+_LINEAGE_MD = Path(__file__).parent.parent / "docs" / "lineage.md"
 
 
 def _build_redis_client() -> redis.Redis:
@@ -84,9 +96,15 @@ def create_app() -> FastAPI:
 
     @app.get("/events")
     async def events(request: Request) -> EventSourceResponse:
-        """SSE stream: replay cached last-of-each-type, then live messages."""
+        """SSE stream: replay cached last-of-each-type, then the most recent
+        shift events (time order), then live messages."""
         bridge: PubSubBridge = request.app.state.bridge
+        # register() seeds the queue with the cached last-of-each-type replay;
+        # the shift-event backlog is enqueued after it so the dashboard renders
+        # current state first, then recent shift-log history chronologically.
         queue = bridge.register()
+        for message in bridge.replay_shift_events():
+            queue.put_nowait(message)
 
         async def event_generator():
             try:
@@ -101,6 +119,51 @@ def create_app() -> FastAPI:
                 bridge.unregister(queue)
 
         return EventSourceResponse(event_generator())
+
+    @app.get("/airports")
+    async def airports() -> dict:
+        """List the configured airports and the currently selected one.
+
+        The selected airport comes from towerguard:selected_airport (set via
+        POST /airport/{icao}); if unset or stale it falls back to the config
+        default so the dashboard always renders a valid selection.
+        """
+        redis_client: redis.Redis = app.state.redis
+        try:
+            selected = redis_client.get(SELECTED_AIRPORT_KEY)
+        except Exception:
+            selected = None
+        if selected not in config.AIRPORTS:
+            selected = config.DEFAULT_AIRPORT
+        return {
+            "airports": [
+                {"icao": a.icao, "name": a.name} for a in config.AIRPORTS.values()
+            ],
+            "selected": selected,
+        }
+
+    @app.post("/airport/{icao}")
+    async def select_airport(icao: str) -> dict:
+        """Select the monitored airport; the runner picks the change up on its
+        next poll. 404 if the ICAO is not in the configured set."""
+        if icao not in config.AIRPORTS:
+            raise HTTPException(status_code=404, detail=f"Unknown airport: {icao}")
+        redis_client: redis.Redis = app.state.redis
+        redis_client.set(SELECTED_AIRPORT_KEY, icao)
+        return {"airport": icao}
+
+    @app.get("/lineage")
+    async def lineage() -> PlainTextResponse:
+        """Serve docs/lineage.md as markdown; 404 if the file does not exist.
+
+        The file is authored by the frontend agent and may not be present yet.
+        """
+        if not _LINEAGE_MD.is_file():
+            raise HTTPException(status_code=404, detail="lineage.md not found")
+        return PlainTextResponse(
+            _LINEAGE_MD.read_text(encoding="utf-8"),
+            media_type="text/markdown; charset=utf-8",
+        )
 
     @app.post("/confirm/{advisory_id}")
     async def confirm(advisory_id: str) -> dict:

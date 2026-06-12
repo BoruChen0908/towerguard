@@ -101,13 +101,63 @@ body {
   color: var(--fg);
 }
 .tg-logo-accent { color: var(--accent); }
-.tg-airport {
-  color: var(--fg-dim);
+/* airport switcher — ops-room select: mono, dark, etched */
+.tg-airport-select-wrap { display: inline-flex; align-items: center; }
+.tg-airport-select {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--fg);
+  background: var(--bg-panel);
   border: 1px solid var(--border-bright);
   border-radius: 3px;
-  padding: 2px 7px;
-  letter-spacing: 0.18em;
+  padding: 2px 24px 2px 8px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  /* custom caret so it reads as one of ours, not a native control */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--fg-dim) 50%),
+    linear-gradient(135deg, var(--fg-dim) 50%, transparent 50%);
+  background-position:
+    calc(100% - 13px) calc(50% - 1px),
+    calc(100% - 9px) calc(50% - 1px);
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  transition: border-color var(--t-fast) var(--t-ease),
+              box-shadow var(--t-fast) var(--t-ease);
 }
+.tg-airport-select:hover { border-color: var(--accent); }
+.tg-airport-select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(74, 168, 255, 0.25);
+}
+.tg-airport-select:disabled { opacity: 0.55; cursor: progress; }
+/* dropdown popup background (where the platform honors it) */
+.tg-airport-select option { background: var(--bg-panel); color: var(--fg); }
+
+/* LINEAGE button — sits in the header, quiet until hovered */
+.tg-lineage-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--fg-dim);
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  border-radius: 3px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: color var(--t-fast) var(--t-ease),
+              border-color var(--t-fast) var(--t-ease),
+              background var(--t-fast) var(--t-ease);
+}
+.tg-lineage-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(74, 168, 255, 0.08);
+}
+
 .tg-header-spacer { flex: 1 1 auto; }
 .tg-clock { color: var(--fg); letter-spacing: 0.08em; }
 .tg-clock-z { color: var(--fg-faint); margin-left: 2px; }
@@ -336,6 +386,27 @@ body {
   font-size: 11px;
 }
 
+/* SWITCHING state (airport switch in flight) — faint + neutral, NOT degraded.
+   Distinct from UNKNOWN/DEGRADED: no purple stripes, no alarm pulse; the panel
+   simply dims and shows "SWITCHING…" until the new airport's first event. */
+.tg-panel.is-switching {
+  border-left-color: var(--fg-faint);
+  border-color: var(--border);
+  background: linear-gradient(180deg, var(--bg-panel), var(--bg-deep));
+  opacity: 0.6;
+  box-shadow: none;
+  animation: none;
+  transition: opacity var(--t-base) var(--t-ease),
+              border-left-color var(--t-base) var(--t-ease),
+              background var(--t-base) var(--t-ease);
+}
+.tg-panel.is-switching .tg-panel-tier {
+  color: var(--fg-faint);
+  font-size: 16px;
+  letter-spacing: 0.14em;
+  animation: t-pulse 1.8s var(--t-ease-in-out) infinite;
+}
+
 /* score-update micro-highlight (added/removed by JS) */
 .tg-panel-score.t-bump,
 .tg-panel-fields dd.t-bump {
@@ -345,8 +416,14 @@ body {
 /* ============================================================
    ADVISORY RAIL
    ============================================================ */
-.tg-advisory-rail {
+.tg-advisory-zone {
   grid-area: advisory;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+.tg-advisory-rail {
   display: flex;
   gap: var(--gap);
   align-items: stretch;
@@ -451,6 +528,76 @@ body {
   color: var(--fg-dim);
 }
 .tg-adv-foot { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+
+/* ============================================================
+   SHIFT EVENT STRIP (thin timeline above the advisory rail)
+   ============================================================ */
+.tg-event-strip {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-deep);
+  scrollbar-width: thin;
+}
+.tg-event-strip-empty {
+  color: var(--fg-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding-left: 4px;
+  white-space: nowrap;
+}
+.tg-event-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 280px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: default;
+}
+.tg-event-chip.t-slide-in { animation: t-slide-up var(--t-base) var(--t-spring); }
+.tg-event-chip-time { color: var(--fg-dim); }
+.tg-event-chip-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--fg-faint); /* default / unknown kind */
+}
+.tg-event-chip-summary {
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* per-kind dot color (set via data-kind by eventstrip.js) */
+.tg-event-chip[data-kind="tier_change"] .tg-event-chip-dot {
+  background: var(--tier-medium);
+  box-shadow: 0 0 5px var(--tier-medium-glow);
+}
+.tg-event-chip[data-kind="advisory"] .tg-event-chip-dot {
+  background: var(--tier-high);
+  box-shadow: 0 0 5px var(--tier-high-glow);
+}
+.tg-event-chip[data-kind="briefing"] .tg-event-chip-dot {
+  background: var(--accent);
+  box-shadow: 0 0 5px rgba(74, 168, 255, 0.4);
+}
+.tg-event-chip[data-kind="airport_switch"] .tg-event-chip-dot {
+  background: var(--fg-faint);
+}
 
 /* ============================================================
    CONFIRM BUTTON (shared by advisory + briefing)
@@ -597,6 +744,110 @@ body {
   padding: 1px 5px; border-radius: 3px;
 }
 .tg-briefing-body ul, .tg-briefing-body ol { padding-left: 20px; }
+
+/* ============================================================
+   LINEAGE — slide-out "依據" panel (reuses the briefing slide-out pattern)
+   ============================================================ */
+.tg-lineage-scrim {
+  position: fixed; inset: 0; z-index: 950;
+  background: rgba(2, 5, 9, 0.55);
+  opacity: 0;
+  transition: opacity var(--t-base) var(--t-ease);
+}
+.tg-lineage-scrim.is-open { opacity: 1; }
+
+.tg-lineage-panel {
+  position: fixed;
+  top: 0; left: 0; bottom: 0; z-index: 960;
+  width: min(720px, 94vw);
+  background: var(--bg-deep);
+  border-right: 1px solid var(--border-bright);
+  box-shadow: 10px 0 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform var(--t-slow) var(--t-ease);
+}
+.tg-lineage-panel.is-open { transform: translateX(0); }
+.tg-lineage-panel-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.tg-lineage-panel-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+}
+.tg-lineage-close {
+  background: none; border: none; color: var(--fg-dim);
+  font-size: 22px; line-height: 1; cursor: pointer;
+  transition: color var(--t-fast) var(--t-ease);
+}
+.tg-lineage-close:hover { color: var(--fg); }
+.tg-lineage-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 18px 22px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.tg-lineage-loading, .tg-lineage-error {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+.tg-lineage-error { color: var(--tier-high); }
+
+/* markdown styling inside lineage */
+.tg-lineage-body h1 {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.tg-lineage-body h2 {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--fg);
+  margin-top: 18px;
+}
+.tg-lineage-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.tg-lineage-body strong { color: var(--fg); }
+.tg-lineage-body em { color: var(--fg-dim); }
+.tg-lineage-body code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--bg-panel);
+  color: var(--accent);
+  padding: 1px 5px; border-radius: 3px;
+}
+.tg-lineage-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 11.5px;
+}
+.tg-lineage-body th, .tg-lineage-body td {
+  border: 1px solid var(--border);
+  padding: 6px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+.tg-lineage-body th {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--fg-dim);
+  background: var(--bg-panel);
+}
+.tg-lineage-body td { color: var(--fg); }
+.tg-lineage-body tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.012); }
 
 /* ============================================================
    DISCLAIMER FOOTER

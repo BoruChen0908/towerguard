@@ -30,5 +30,17 @@ TOPIC_TO_EVENT: dict[str, str] = {
 
 SUBSCRIBED_TOPICS: tuple[str, ...] = tuple(TOPIC_TO_EVENT.keys())
 
-# The six SSE event-type strings the frontend listens for (contract-frozen).
-SSE_EVENT_TYPES: frozenset[str] = frozenset(TOPIC_TO_EVENT.values())
+# SSE event type for the shift-events Redis Stream (contact.md §1). It does not
+# map to a pub/sub topic — the bridge sources it from a XREAD on the stream —
+# so it lives outside TOPIC_TO_EVENT but is still a frontend-visible event type.
+EVENT_SHIFT_EVENT = "shift_event"
+
+# The SSE event-type strings the frontend listens for (contract-frozen):
+# the six pub/sub-backed types plus the stream-backed shift_event.
+SSE_EVENT_TYPES: frozenset[str] = frozenset(TOPIC_TO_EVENT.values()) | {
+    EVENT_SHIFT_EVENT
+}
+
+# Redis String key holding the operator-selected airport ICAO (functional A).
+# The runner polls this every few seconds; the dashboard SETs it on switch.
+SELECTED_AIRPORT_KEY = "towerguard:selected_airport"

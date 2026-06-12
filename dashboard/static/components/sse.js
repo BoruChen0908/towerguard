@@ -7,6 +7,7 @@ const EVENT_TYPES = [
   "advisory",
   "aircraft_snapshot",
   "briefing",
+  "shift_event",
 ];
 
 /**

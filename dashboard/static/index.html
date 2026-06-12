@@ -27,7 +27,12 @@
   <!-- ===== TOP HEADER (thin strip) ===== -->
   <header class="tg-header">
     <span class="tg-logo">TOWER<span class="tg-logo-accent">GUARD</span></span>
-    <span class="tg-airport" id="airport-code">----</span>
+    <label class="tg-airport-select-wrap" for="airport-select">
+      <select class="tg-airport-select" id="airport-select" aria-label="Active airport">
+        <option value="" disabled selected>----</option>
+      </select>
+    </label>
+    <button class="tg-lineage-btn" id="lineage-btn" type="button">LINEAGE</button>
     <span class="tg-header-spacer"></span>
     <span class="tg-clock" id="utc-clock">--:--:--<span class="tg-clock-z">Z</span></span>
     <span class="tg-conn" id="conn-indicator" title="Connection status">
@@ -82,9 +87,14 @@
       </article>
     </aside>
 
-    <!-- Bottom: advisory rail (spans full width) -->
-    <section class="tg-advisory-rail" id="advisory-rail" aria-label="Advisories" aria-live="polite">
-      <div class="tg-advisory-empty" id="advisory-empty">No active advisories</div>
+    <!-- Bottom: shift event strip + advisory rail (span full width) -->
+    <section class="tg-advisory-zone">
+      <div class="tg-event-strip" id="event-strip" aria-label="Shift events" aria-live="polite">
+        <span class="tg-event-strip-empty" id="event-strip-empty">No shift events yet</span>
+      </div>
+      <div class="tg-advisory-rail" id="advisory-rail" aria-label="Advisories" aria-live="polite">
+        <div class="tg-advisory-empty" id="advisory-empty">No active advisories</div>
+      </div>
     </section>
   </main>
 
@@ -104,6 +114,16 @@
     <div class="tg-briefing-foot">
       <button class="tg-confirm-btn" id="briefing-confirm">Controller Confirmed</button>
     </div>
+  </aside>
+
+  <!-- ===== LINEAGE: slide-out "依據" panel (reuses briefing slide-out pattern) ===== -->
+  <div class="tg-lineage-scrim" id="lineage-scrim" hidden></div>
+  <aside class="tg-lineage-panel" id="lineage-panel" aria-label="Decision lineage" aria-hidden="true">
+    <div class="tg-lineage-panel-head">
+      <span class="tg-lineage-panel-title">DECISION LINEAGE — 依據</span>
+      <button class="tg-lineage-close" id="lineage-close" aria-label="Close lineage">&times;</button>
+    </div>
+    <div class="tg-lineage-body" id="lineage-body"></div>
   </aside>
 
   <!-- ===== PERSISTENT DISCLAIMER FOOTER ===== -->

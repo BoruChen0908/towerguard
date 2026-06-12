@@ -58,6 +58,28 @@ export function createPanels({ onDegradedChange } = {}) {
     return Object.values(state).some((s) => s.tier === "UNKNOWN");
   }
 
+  // ---- airport-switch neutral state ----
+  // During a switch the old airport's tiers are meaningless but the feed is NOT
+  // degraded — so we show a distinct faint "SWITCHING…" look, never the
+  // DEGRADED grey-purple. setSwitching(true) freezes panels into that state;
+  // the next module event for the new airport clears it (see update()).
+  function setSwitching(on) {
+    for (const s of Object.values(state)) {
+      s.el.classList.toggle("is-switching", !!on);
+      if (on) {
+        s.tierEl.textContent = "SWITCHING…";
+        s.scoreEl.textContent = "";
+        s.fieldsEl.innerHTML = "";
+        s.ageEl.textContent = "--";
+        s.ageEl.classList.remove("is-stale");
+      }
+    }
+  }
+
+  function clearSwitching() {
+    for (const s of Object.values(state)) s.el.classList.remove("is-switching");
+  }
+
   function bump(node) {
     if (!node) return;
     node.classList.remove("t-bump");
@@ -69,6 +91,9 @@ export function createPanels({ onDegradedChange } = {}) {
   function update(module, event) {
     const s = state[module];
     if (!s) return;
+
+    // a real event for this panel resumes normal rendering after a switch
+    s.el.classList.remove("is-switching");
 
     const tier = safeTier(event.tier);
     // Discipline: data_unavailable always forces DEGRADED regardless of tier.
@@ -116,5 +141,11 @@ export function createPanels({ onDegradedChange } = {}) {
   // self-updating age ticker (1s); independent of any animation
   const timer = setInterval(tickAge, 1000);
 
-  return { update, anyDegraded, stop: () => clearInterval(timer) };
+  return {
+    update,
+    anyDegraded,
+    setSwitching,
+    clearSwitching,
+    stop: () => clearInterval(timer),
+  };
 }

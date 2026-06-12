@@ -167,6 +167,10 @@ WI_MAX_HANDOFF_RATE = 30  # handoffs/hr at which handoff-score saturates
 # Runner
 # ---------------------------------------------------------------------------
 RUNNER_CYCLE_SECONDS = 60
+# How often the runner wakes to check the dashboard-selected airport. A change
+# triggers an immediate cycle for the new airport rather than waiting out the
+# remaining cycle window (functional A).
+RUNNER_POLL_SECONDS = 5
 
 # ---------------------------------------------------------------------------
 # Startup validation

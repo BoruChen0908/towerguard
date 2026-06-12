@@ -2,17 +2,11 @@
 // Renders markdown (marked CDN, with a minimal fallback) and a Confirm button.
 
 import { confirmAdvisory } from "./confirm.js";
+import { renderMarkdown } from "./markdown.js";
 
 export function createBriefing(refs) {
   const { btn, scrim, panel, body, closeBtn, confirmBtn } = refs;
   let currentId = null;
-
-  function renderMarkdown(md) {
-    if (window.marked && typeof window.marked.parse === "function") {
-      return window.marked.parse(md);
-    }
-    return fallbackMarkdown(md);
-  }
 
   function openPanel() {
     scrim.hidden = false;
@@ -99,42 +93,4 @@ function formatTs(iso) {
   const d = new Date(ms);
   const p = (n) => String(n).padStart(2, "0");
   return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}Z`;
-}
-
-/** Minimal markdown fallback if the marked CDN fails to load.
- *  Covers headings, hr, em, lists, and paragraphs — enough for the briefing. */
-function fallbackMarkdown(md) {
-  const esc = (s) =>
-    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const lines = String(md).split("\n");
-  const out = [];
-  let inList = false;
-  for (let raw of lines) {
-    const line = raw.trimEnd();
-    if (/^---+$/.test(line.trim())) { closeList(); out.push("<hr>"); continue; }
-    let m;
-    if ((m = line.match(/^(#{1,6})\s+(.*)$/))) {
-      closeList();
-      const lvl = m[1].length;
-      out.push(`<h${lvl}>${inline(esc(m[2]))}</h${lvl}>`);
-    } else if ((m = line.match(/^[-*]\s+(.*)$/))) {
-      if (!inList) { out.push("<ul>"); inList = true; }
-      out.push(`<li>${inline(esc(m[1]))}</li>`);
-    } else if (line.trim() === "") {
-      closeList();
-    } else {
-      closeList();
-      out.push(`<p>${inline(esc(line))}</p>`);
-    }
-  }
-  closeList();
-  return out.join("\n");
-
-  function closeList() { if (inList) { out.push("</ul>"); inList = false; } }
-  function inline(s) {
-    return s
-      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      .replace(/`(.+?)`/g, "<code>$1</code>");
-  }
 }
