@@ -1,5 +1,9 @@
 # TowerGuard — The Cost of Doing Nothing: ATC Controller Staffing
 
+> ⚠️ **願景/pitch 文件（2026-06-13）。pivot 的方向正確,但模型細節已被實作取代** —
+> 實際是 5 stock(Applicants→Academy→Developmental→CPC + 衍生 total)、**年**步長、**500** 次 Monte Carlo、回測報「% 誤差」非 RMSE,且「退休懸崖」已校正(2007 達峰、前向低)。
+> **當前模型數字以 [../masterplan.md](../masterplan.md) 與 [../contracts/scenario_results.example.json](../contracts/scenario_results.example.json) 為準**,勿引用本文以下的舊規格(月步長 / 1000 條 / RMSE / 舊 stock 名)。
+
 *定稿：2026-06-13 · USAII Hackathon Challenge Brief 6 · Direction A · 研究所組*
 *這份文件是 pitch 與 Devpost 的內容真相來源（取代原本的即時工具框架）*
 

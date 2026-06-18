@@ -1,5 +1,8 @@
 # TowerGuard — 一頁總覽
 
+> ⚠️ **Pre-pivot 文件（2026-06-12）— 只描述「即時 Live Validation 半」。**
+> TowerGuard 已 pivot 成**「不作為代價」模擬器**；本文寫的是原本的即時管制員工具(現為嵌入式 Live Validation 面板),其「主要使用者=現場管制員、政策層為衍生」的定位**已不適用**。當前專案請看 **[HANDOVER.md](HANDOVER.md)**(入口)與 **[masterplan.md](masterplan.md)**(模擬器計畫)。
+
 *最後更新：2026-06-12 · 給 Bo-Ru 隨時回來看，不迷路*
 
 ---

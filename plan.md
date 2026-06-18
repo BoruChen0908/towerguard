@@ -1,5 +1,8 @@
 # TowerGuard — 任務主導執行計畫（Bo-Ru 範圍）
 
+> ⚠️ **Pre-pivot 文件（2026-06-12）— 即時「Live Validation 半」的建置計畫(Wave 0–3、demo D1–D10),內容已大致完成。**
+> 模擬器(現在的主專案)計畫在 **[masterplan.md](masterplan.md)**;整體導覽見 **[HANDOVER.md](HANDOVER.md)**。本文保留為即時半的施工記錄。
+
 *建立：2026-06-12 · 原則：任務主導、決策點對應既有 ATC 流程、邊際問題夠用就好*
 
 ---

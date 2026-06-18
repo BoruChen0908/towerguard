@@ -1,5 +1,8 @@
 # TowerGuard — 進度與待辦盤點
 
+> ⚠️ **Pre-pivot 文件（2026-06-12）— 只反映「即時 Live Validation 半」的進度,不是整個專案的現狀。**
+> 模擬器半(model 層、validation/lifecycle/community、JSON 合約)在此之後才建,**不在本文範圍**。交接與全專案現狀請看 **[HANDOVER.md](HANDOVER.md)**;本文當作 KT 的 Job B(即時 agent)整合脈絡即可。
+
 *最後更新：2026-06-12 · 負責人：Bo-Ru（後端＋dashboard）· 隊友：Katherine（LLM agents）*
 *GitHub：`BoruChen0908/towerguard`（private）· 測試：212 passed · 今日 commit：10*
 
