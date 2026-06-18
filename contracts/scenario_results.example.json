@@ -1,0 +1,1024 @@
+{
+  "meta": {
+    "model_version": "1.0",
+    "calibration_date": "2026-06-17",
+    "generated_at": "2026-06-18T01:59:17Z",
+    "horizon": "FY2025-FY2036",
+    "data_sources": [
+      "GAO-26-107320 (Dec 2025)",
+      "FAA Controller Workforce Plan 2026-2028",
+      "National Academies/TRB (Jun 2025)",
+      "A4A delay-cost dataset / Senate testimony (Nov 2025)",
+      "FAA/Nextor delay cost ($33B, 2019)",
+      "SAFTE-FAST (Hursh et al. 2004)",
+      "NTSB DCA final report (Jan 2026)"
+    ],
+    "freshness": "green",
+    "notes": "Per-year arrays span FY2025-FY2036, index-aligned with `years`. Cumulative costs exclude the FY2025 base year (projected FY2026+). safety.risk_index is a RELATIVE risk multiplier (1.0 = baseline), not a probability."
+  },
+  "targets": {
+    "faa": 12563,
+    "natca": 14633
+  },
+  "safety_context": "Corroborating context (not a fitted relationship): FY2023 saw 19 serious near-misses, a 7-year high, during the staffing crisis. Risk_index is a RELATIVE multiplier (1.0 = rested baseline), NOT an accident probability (\u00a79.2).",
+  "scenarios": [
+    {
+      "id": "baseline",
+      "label": "Baseline (status quo)",
+      "description": "Hiring stays at the FY2025 actual (~2,028/yr), no new effort.",
+      "years": [
+        2025,
+        2026,
+        2027,
+        2028,
+        2029,
+        2030,
+        2031,
+        2032,
+        2033,
+        2034,
+        2035,
+        2036
+      ],
+      "series": {
+        "total_controllers": [
+          13164.0,
+          13103.2,
+          13070.1,
+          13070.6,
+          13095.1,
+          13136.4,
+          13188.6,
+          13247.3,
+          13309.1,
+          13371.4,
+          13432.2,
+          13489.9
+        ],
+        "cpc": [
+          11000.0,
+          10441.9,
+          10032.3,
+          9737.7,
+          9527.1,
+          9379.9,
+          9281.2,
+          9220.3,
+          9188.7,
+          9179.7,
+          9187.9,
+          9208.7
+        ],
+        "developmentals": [
+          2164.0,
+          2661.3,
+          3037.8,
+          3332.9,
+          3568.0,
+          3756.5,
+          3907.4,
+          4027.0,
+          4120.5,
+          4191.7,
+          4244.3,
+          4281.2
+        ],
+        "staffing_pct_of_target": [
+          1.048,
+          1.043,
+          1.04,
+          1.04,
+          1.042,
+          1.046,
+          1.05,
+          1.054,
+          1.059,
+          1.064,
+          1.069,
+          1.074
+        ],
+        "overtime_hours_per_controller": [
+          167.6,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0
+        ]
+      },
+      "bands": {
+        "cpc_p10": [
+          11000.0,
+          10226.1,
+          9612.2,
+          9132.2,
+          8752.5,
+          8451.0,
+          8214.9,
+          8016.7,
+          7849.1,
+          7718.7,
+          7557.1,
+          7408.4
+        ],
+        "cpc_p90": [
+          11000.0,
+          10746.1,
+          10573.7,
+          10457.6,
+          10382.5,
+          10341.2,
+          10350.6,
+          10371.0,
+          10390.4,
+          10397.2,
+          10439.6,
+          10488.7
+        ]
+      },
+      "costs": {
+        "annual_cost_by_year": [
+          1911233337,
+          8467599872,
+          13250119213,
+          16688925208,
+          19147303085,
+          20866912678,
+          22018750299,
+          22729947488,
+          23098801423,
+          23203611841,
+          23108062758,
+          22864596300
+        ],
+        "cumulative_delay_cost_usd": 212783339842,
+        "cumulative_overtime_cost_usd": 2661290323
+      },
+      "safety": {
+        "months_below_85pct": 132,
+        "risk_index": [
+          1.649,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783
+        ]
+      }
+    },
+    {
+      "id": "do_nothing",
+      "label": "Do Nothing",
+      "description": "Hiring collapses to the FY2021 COVID low (~500/yr).",
+      "years": [
+        2025,
+        2026,
+        2027,
+        2028,
+        2029,
+        2030,
+        2031,
+        2032,
+        2033,
+        2034,
+        2035,
+        2036
+      ],
+      "series": {
+        "total_controllers": [
+          13164.0,
+          13103.2,
+          12000.5,
+          10975.2,
+          10034.8,
+          9180.0,
+          8385.6,
+          7606.2,
+          6761.7,
+          5781.0,
+          4609.4,
+          3272.7
+        ],
+        "cpc": [
+          11000.0,
+          10441.9,
+          10032.3,
+          9456.4,
+          8802.2,
+          8127.2,
+          7443.0,
+          6727.3,
+          5912.9,
+          4935.4,
+          3755.6,
+          2412.2
+        ],
+        "developmentals": [
+          2164.0,
+          2661.3,
+          1968.2,
+          1518.8,
+          1232.6,
+          1052.8,
+          942.5,
+          879.0,
+          848.8,
+          845.7,
+          853.7,
+          860.5
+        ],
+        "staffing_pct_of_target": [
+          1.048,
+          1.043,
+          0.955,
+          0.874,
+          0.799,
+          0.731,
+          0.667,
+          0.605,
+          0.538,
+          0.46,
+          0.367,
+          0.261
+        ],
+        "overtime_hours_per_controller": [
+          167.6,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          273.5,
+          346.9,
+          423.6,
+          510.9,
+          615.7,
+          742.1,
+          886.2
+        ]
+      },
+      "bands": {
+        "cpc_p10": [
+          11000.0,
+          10226.1,
+          9612.2,
+          8897.0,
+          8135.8,
+          7336.9,
+          6485.2,
+          5465.3,
+          3923.9,
+          1845.2,
+          229.3,
+          147.0
+        ],
+        "cpc_p90": [
+          11000.0,
+          10746.1,
+          10573.7,
+          10079.2,
+          9481.3,
+          8852.9,
+          8225.0,
+          7623.3,
+          7003.7,
+          6378.8,
+          5727.1,
+          5080.4
+        ]
+      },
+      "costs": {
+        "annual_cost_by_year": [
+          1911233337,
+          8467599872,
+          13250119213,
+          19973118300,
+          27610713669,
+          35576666120,
+          43651622632,
+          52099552718,
+          61711538243,
+          73249511771,
+          87173586952,
+          100061274975
+        ],
+        "cumulative_delay_cost_usd": 517308080755,
+        "cumulative_overtime_cost_usd": 5517223710
+      },
+      "safety": {
+        "months_below_85pct": 132,
+        "risk_index": [
+          1.649,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          2.001,
+          2.032,
+          2.11,
+          2.257,
+          2.514,
+          2.941,
+          3.584
+        ]
+      }
+    },
+    {
+      "id": "current_plan",
+      "label": "Current Plan (FAA CWP)",
+      "description": "FAA CWP 2026-2028 hiring ramp 2,200 -> 2,300 -> 2,400.",
+      "years": [
+        2025,
+        2026,
+        2027,
+        2028,
+        2029,
+        2030,
+        2031,
+        2032,
+        2033,
+        2034,
+        2035,
+        2036
+      ],
+      "series": {
+        "total_controllers": [
+          13164.0,
+          13103.2,
+          13190.5,
+          13376.5,
+          13646.6,
+          13918.0,
+          14181.8,
+          14431.5,
+          14662.7,
+          14872.4,
+          15059.2,
+          15222.6
+        ],
+        "cpc": [
+          11000.0,
+          10441.9,
+          10032.3,
+          9769.4,
+          9628.4,
+          9593.1,
+          9635.2,
+          9733.4,
+          9871.3,
+          10035.3,
+          10214.0,
+          10398.1
+        ],
+        "developmentals": [
+          2164.0,
+          2661.3,
+          3158.2,
+          3607.1,
+          4018.2,
+          4324.8,
+          4546.6,
+          4698.1,
+          4791.4,
+          4837.1,
+          4845.2,
+          4824.5
+        ],
+        "staffing_pct_of_target": [
+          1.048,
+          1.043,
+          1.05,
+          1.065,
+          1.086,
+          1.108,
+          1.129,
+          1.149,
+          1.167,
+          1.184,
+          1.199,
+          1.212
+        ],
+        "overtime_hours_per_controller": [
+          167.6,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0
+        ]
+      },
+      "bands": {
+        "cpc_p10": [
+          11000.0,
+          10226.1,
+          9612.2,
+          9156.9,
+          8828.6,
+          8627.4,
+          8497.6,
+          8435.2,
+          8419.6,
+          8479.7,
+          8557.7,
+          8637.1
+        ],
+        "cpc_p90": [
+          11000.0,
+          10746.1,
+          10573.7,
+          10500.2,
+          10527.1,
+          10635.4,
+          10800.6,
+          10999.6,
+          11243.6,
+          11424.3,
+          11615.6,
+          11813.2
+        ]
+      },
+      "costs": {
+        "annual_cost_by_year": [
+          1911233337,
+          8467599872,
+          13250119213,
+          16319238551,
+          17965753418,
+          18376879303,
+          17886270723,
+          16739538066,
+          15129770726,
+          13215357163,
+          11128618794,
+          8979611139
+        ],
+        "cumulative_delay_cost_usd": 154797466646,
+        "cumulative_overtime_cost_usd": 2661290323
+      },
+      "safety": {
+        "months_below_85pct": 132,
+        "risk_index": [
+          1.649,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783
+        ]
+      }
+    },
+    {
+      "id": "accelerated",
+      "label": "Accelerated",
+      "description": "Max hiring + TSS-faster certification + retention + CTI.",
+      "years": [
+        2025,
+        2026,
+        2027,
+        2028,
+        2029,
+        2030,
+        2031,
+        2032,
+        2033,
+        2034,
+        2035,
+        2036
+      ],
+      "series": {
+        "total_controllers": [
+          13164.0,
+          13406.8,
+          14080.8,
+          14713.8,
+          15309.0,
+          15874.8,
+          16415.5,
+          16935.1,
+          17415.5,
+          17855.5,
+          18258.2,
+          18626.8
+        ],
+        "cpc": [
+          11000.0,
+          10850.1,
+          10848.6,
+          11110.2,
+          11523.9,
+          11991.0,
+          12478.2,
+          12968.6,
+          13433.2,
+          13864.6,
+          14262.6,
+          14628.7
+        ],
+        "developmentals": [
+          2164.0,
+          2556.7,
+          3232.2,
+          3603.6,
+          3785.1,
+          3883.8,
+          3937.4,
+          3966.5,
+          3982.3,
+          3990.9,
+          3995.6,
+          3998.1
+        ],
+        "staffing_pct_of_target": [
+          1.048,
+          1.067,
+          1.121,
+          1.171,
+          1.219,
+          1.264,
+          1.307,
+          1.348,
+          1.386,
+          1.421,
+          1.453,
+          1.483
+        ],
+        "overtime_hours_per_controller": [
+          167.6,
+          183.6,
+          183.8,
+          155.7,
+          111.4,
+          61.3,
+          9.1,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "bands": {
+        "cpc_p10": [
+          11000.0,
+          10602.0,
+          10373.1,
+          10398.2,
+          10585.0,
+          10870.2,
+          11224.3,
+          11623.3,
+          11972.2,
+          12321.5,
+          12618.0,
+          12888.0
+        ],
+        "cpc_p90": [
+          11000.0,
+          11207.7,
+          11432.6,
+          11886.7,
+          12445.5,
+          13017.3,
+          13577.1,
+          14072.9,
+          14552.7,
+          14984.0,
+          15389.4,
+          15787.3
+        ]
+      },
+      "costs": {
+        "annual_cost_by_year": [
+          1911233337,
+          3680869315,
+          3698232429,
+          1836515160,
+          1783405804,
+          1723433470,
+          1660890113,
+          1650000000,
+          1650000000,
+          1650000000,
+          1650000000,
+          1650000000
+        ],
+        "cumulative_delay_cost_usd": 21789082508,
+        "cumulative_overtime_cost_usd": 844263783
+      },
+      "safety": {
+        "months_below_85pct": 0,
+        "risk_index": [
+          1.649,
+          1.711,
+          1.712,
+          1.603,
+          1.432,
+          1.238,
+          1.035,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "disruption",
+      "label": "Disruption (shutdown shock)",
+      "description": "Current Plan hit by a 2025-style shutdown in FY2027.",
+      "years": [
+        2025,
+        2026,
+        2027,
+        2028,
+        2029,
+        2030,
+        2031,
+        2032,
+        2033,
+        2034,
+        2035,
+        2036
+      ],
+      "series": {
+        "total_controllers": [
+          13164.0,
+          13103.2,
+          12740.5,
+          12034.9,
+          12367.9,
+          12724.8,
+          13089.1,
+          13448.3,
+          13793.2,
+          14116.9,
+          14414.3,
+          14682.4
+        ],
+        "cpc": [
+          11000.0,
+          10441.9,
+          10032.3,
+          9651.0,
+          9202.2,
+          8962.9,
+          8869.9,
+          8884.2,
+          8978.8,
+          9133.4,
+          9331.1,
+          9557.5
+        ],
+        "developmentals": [
+          2164.0,
+          2661.3,
+          2708.2,
+          2383.9,
+          3165.7,
+          3761.9,
+          4219.2,
+          4564.1,
+          4814.4,
+          4983.5,
+          5083.2,
+          5124.9
+        ],
+        "staffing_pct_of_target": [
+          1.048,
+          1.043,
+          1.014,
+          0.958,
+          0.984,
+          1.013,
+          1.042,
+          1.07,
+          1.098,
+          1.124,
+          1.147,
+          1.169
+        ],
+        "overtime_hours_per_controller": [
+          167.6,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0,
+          202.0
+        ]
+      },
+      "bands": {
+        "cpc_p10": [
+          11000.0,
+          10226.1,
+          9612.2,
+          9060.0,
+          8490.9,
+          8116.5,
+          7862.2,
+          7674.7,
+          7531.0,
+          7441.8,
+          7374.0,
+          7430.7
+        ],
+        "cpc_p90": [
+          11000.0,
+          10746.1,
+          10573.7,
+          10345.9,
+          9960.0,
+          9851.8,
+          9885.7,
+          10037.8,
+          10239.7,
+          10466.4,
+          10732.7,
+          11001.2
+        ]
+      },
+      "costs": {
+        "annual_cost_by_year": [
+          1911233337,
+          8467599872,
+          13250119213,
+          17700957784,
+          22940606227,
+          25734632523,
+          26820422817,
+          26653637346,
+          25548628269,
+          23744122314,
+          21435924415,
+          18792942472
+        ],
+        "cumulative_delay_cost_usd": 228428302929,
+        "cumulative_overtime_cost_usd": 2661290323
+      },
+      "safety": {
+        "months_below_85pct": 132,
+        "risk_index": [
+          1.649,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783,
+          1.783
+        ]
+      }
+    }
+  ],
+  "timing_comparator": {
+    "intervention": "current_plan",
+    "start_years": [
+      2026,
+      2027,
+      2028,
+      2029,
+      2030
+    ],
+    "trajectories": {
+      "2026": [
+        11000.0,
+        10441.9,
+        10032.3,
+        9769.4,
+        9628.4,
+        9593.1,
+        9635.2,
+        9733.4,
+        9871.3,
+        10035.3,
+        10214.0,
+        10398.1
+      ],
+      "2027": [
+        11000.0,
+        10441.9,
+        10032.3,
+        9456.4,
+        9114.6,
+        8948.2,
+        8907.6,
+        8960.2,
+        9082.6,
+        9256.4,
+        9465.9,
+        9697.8
+      ],
+      "2028": [
+        11000.0,
+        10441.9,
+        10032.3,
+        9456.4,
+        8802.2,
+        8434.1,
+        8242.8,
+        8183.4,
+        8227.8,
+        8353.3,
+        8544.1,
+        8788.7
+      ],
+      "2029": [
+        11000.0,
+        10441.9,
+        10032.3,
+        9456.4,
+        8802.2,
+        8127.2,
+        7726.4,
+        7497.0,
+        7383.3,
+        7363.2,
+        7428.1,
+        7575.0
+      ],
+      "2030": [
+        11000.0,
+        10441.9,
+        10032.3,
+        9456.4,
+        8802.2,
+        8127.2,
+        7443.0,
+        6986.8,
+        6643.5,
+        6364.3,
+        6122.2,
+        5899.0
+      ]
+    },
+    "net_cost_of_delay_usd": {
+      "2026": 0,
+      "2027": 69911902797,
+      "2028": 138643493833,
+      "2029": 205613613430,
+      "2030": 270698567016
+    },
+    "cumulative_cost_gap_usd": {
+      "2026": 365366547497,
+      "2027": 295454644700,
+      "2028": 226723053664,
+      "2029": 159752934067,
+      "2030": 94667980481
+    }
+  },
+  "sensitivity": [
+    {
+      "parameter": "cpc_attrition_rate",
+      "baseline": 3273,
+      "low_impact": 6210,
+      "high_impact": 1112
+    },
+    {
+      "parameter": "certification_rate",
+      "baseline": 3273,
+      "low_impact": 3211,
+      "high_impact": 3124
+    },
+    {
+      "parameter": "ojt_pass_rate",
+      "baseline": 3273,
+      "low_impact": 2793,
+      "high_impact": 3507
+    },
+    {
+      "parameter": "effectiveness_gap_sensitivity",
+      "baseline": 3273,
+      "low_impact": 5334,
+      "high_impact": 1022
+    },
+    {
+      "parameter": "attrition_amplify",
+      "baseline": 3273,
+      "low_impact": 4568,
+      "high_impact": 1757
+    }
+  ],
+  "assumptions": [
+    {
+      "parameter": "total_controllers_fy2025",
+      "value": 13164,
+      "source": "GAO-26-107320",
+      "confidence": "high"
+    },
+    {
+      "parameter": "cpc_fy2025",
+      "value": 11000,
+      "source": "FAA CWP 2026-2028",
+      "confidence": "medium"
+    },
+    {
+      "parameter": "cpc_attrition_rate_forward",
+      "value": 0.1,
+      "source": "calibrated to FAA plan (D14)",
+      "confidence": "low"
+    },
+    {
+      "parameter": "certification_median_years",
+      "value": 3,
+      "source": "FAA/National Academies",
+      "confidence": "medium"
+    },
+    {
+      "parameter": "ojt_pass_rate",
+      "value": 0.865,
+      "source": "GAO FY2017-2022 funnel",
+      "confidence": "high"
+    },
+    {
+      "parameter": "academy_washout_rate",
+      "value": 0.3,
+      "source": "GAO (>30% FY2024)",
+      "confidence": "high"
+    },
+    {
+      "parameter": "fatigue_threshold",
+      "value": 0.77,
+      "source": "SAFTE-FAST (Hursh 2004)",
+      "confidence": "high"
+    },
+    {
+      "parameter": "staffing_floor",
+      "value": 0.85,
+      "source": "CRWG operational floor (\u00a710.3)",
+      "confidence": "medium"
+    },
+    {
+      "parameter": "annual_delay_cost_usd",
+      "value": 33000000000,
+      "source": "FAA/Nextor 2019",
+      "confidence": "high"
+    },
+    {
+      "parameter": "controller_delay_share_shutdown",
+      "value": 0.61,
+      "source": "A4A (Nov 2025 shutdown)",
+      "confidence": "medium"
+    },
+    {
+      "parameter": "r1_effectiveness_gap_sensitivity",
+      "value": 1.2,
+      "source": "illustrative (D7)",
+      "confidence": "low"
+    },
+    {
+      "parameter": "r1_attrition_amplify",
+      "value": 15.0,
+      "source": "illustrative, Brazil study order-of-magnitude (D7)",
+      "confidence": "low"
+    }
+  ],
+  "policy_brief": {
+    "executive_summary": "On the do-nothing path, the certified controller (CPC) workforce is projected to fall from 11,000 to about 2,412 by FY2036 (~78%), while staffing stays below the 85% safety floor for the entire projection. Executing the current FAA plan instead of doing nothing avoids on the order of $365B in controller-attributable delay and overtime costs over the decade. The cost of waiting is front-loaded and largely irreversible: the certification pipeline takes years, so a hire today reaches the line in 2-3 years.",
+    "key_findings": [
+      "Do-nothing collapse: CPCs fall ~78% by FY2036, driven by a reinforcing burnout-attrition loop.",
+      "Cost of doing nothing: ~$365B versus the current plan, up to ~$500B versus accelerated hiring (controller-attributable delay + overtime, FY2026-2036).",
+      "Safety (the cost money can't buy back): doing nothing pushes the relative fatigue-error risk to ~3.6x the rested baseline, and CPCs stay below the 85% floor for all 11 projected years.",
+      "Front-loaded delay: starting the plan one year late locks in ~$70B; four years late ~$271B."
+    ],
+    "cost_of_delay": "Net cost of delaying the current plan, relative to starting in 2026: 2027 \u2192 +$70B, 2028 \u2192 +$139B, 2029 \u2192 +$206B, 2030 \u2192 +$271B.",
+    "recommendations": [
+      "Begin or sustain the hiring ramp now \u2014 the certification lag means delay compounds for years before it can be reversed.",
+      "Plan against the confidence ranges, not the point estimates (the bands widen with the least-calibrated assumptions).",
+      "Evaluate outcomes against BOTH the FAA (12,563) and NATCA (14,633) staffing targets; this model endorses neither."
+    ],
+    "limitations": "Strategic, aggregate model \u2014 not a facility-level or accident-prediction tool. Safety outputs are RELATIVE risk indicators with wide uncertainty, not accident forecasts. The burnout-loop coefficients are illustrative (literature-anchored, not yet calibrated), so collapse depth and the do-nothing cost are order-of-magnitude. The 'retirement cliff' framing in some source material is outdated for the 2026-2036 horizon."
+  }
+}
