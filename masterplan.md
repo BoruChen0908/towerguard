@@ -345,7 +345,7 @@ DATA LAYER → MODEL LAYER → AI LAYER → PRESENTATION LAYER
 
 | 情境 | 描述 | 校準依據 |
 |---|---|---|
-| **Baseline** | FAA CWP 2026-2028 軌跡 | CPC+CPC-IT 11,855 → 12,691 |
+| **Baseline** | FAA CWP 2026-2028 軌跡 | CPC+CPC-IT 11,686 (FY2024 實際) → 12,691 (FY2028 預測) |
 | **Do Nothing** | 凍結在 FY2021 水準 (~500/yr) | COVID 期間實際數據 |
 | **Current Plan** | 新目標 12,563 CPC + 效率改善 | FAA CWP 2026-2028 |
 | **Accelerated** | 最大 Academy 產能 + CTI + 留任 + TSS | TSS 可縮短認證時間 27% |
@@ -654,16 +654,19 @@ CALIBRATION_DATA = {
     # === STOCKS (initial values, FY2025 end) ===
     "total_controllers_fy2025": 13164,       # GAO-26-107320
     "total_controllers_fy2015": 14007,       # GAO-26-107320
-    "cpcs_fy2025": 11000,                    # FAA CWP 2026-2028 (approx)
-    "cpcs_fy2024": 11855,                    # FAA CWP (CPC + CPC-IT)
-    "developmental_fy2026": 4000,            # FAA/Reuters (approx, Apr 2026)
+    "cpcs_fy2025": 11000,                    # FAA CWP 2026-2028 (approx, Apr-2026 snapshot)
+    "cpc_only_fy2024": 10730,                # FAA CWP 2025 Fig 2.2 (FY2024 actual, CPC only)
+    "cpcs_cpcit_fy2024": 11686,              # FAA CWP 2025 (FY2024 actual; 11,855 was the FY2025 PROJECTION, mislabeled before)
+    "developmental_fy2026": 4000,            # FAA/Reuters Apr 2026 — "in training" = Dev + ~1,000 CPC-IT, NOT developmentals alone
     
     # === FLOW RATES ===
     # Hiring
-    "hires_fy2021": 500,                     # GAO (COVID low)
-    "hires_fy2023": 1500,                    # FAA actual
-    "hires_fy2024": 1700,                    # FAA estimated
-    "hires_fy2025": 2028,                    # FAA CWP 2026-2028 (actual)
+    "hires_fy2020": 920,                     # FAA CWP 2021 facility table (actual)
+    "hires_fy2021": 500,                     # GAO (COVID low; goal was 910)
+    "hires_fy2022": 1026,                    # FAA CWP 2023 facility table (actual)
+    # hires_fy2023: NOT FOUND in any source (the old "1,500 FAA actual" was unverified — removed)
+    "hires_fy2024": 1811,                    # FAA CWP 2025 actual (1,700 was the target)
+    "hires_fy2025": 2028,                    # FAA CWP 2026-2028 (actual; GAO says 2,026)
     "hires_target_fy2026": 2200,             # FAA CWP
     "hires_target_fy2027": 2300,             # FAA CWP
     "hires_target_fy2028": 2400,             # FAA CWP
