@@ -39,6 +39,7 @@ from models.economic_impact import (
     cumulative_cost,
     net_cost_of_delay,
 )
+from models.community_impact import build_community
 from models.lifecycle import build_lifecycle
 from models.monte_carlo import run_monte_carlo
 from models.policy_brief import generate_brief
@@ -232,6 +233,7 @@ def build_results(loop: LoopParams | None = None) -> dict:
         "timing_comparator": _timing_block(active),
         "sensitivity": _sensitivity_block(),
         "assumptions": _assumptions_ledger(),
+        "community_exposure": build_community(),
         "validation": asdict(validation),
         "lifecycle": asdict(lifecycle),
         "policy_brief": asdict(generate_brief(results, active)),

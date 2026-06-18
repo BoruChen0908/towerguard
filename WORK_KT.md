@@ -22,6 +22,7 @@ The contract is **`contracts/scenario_results.example.json`**. Bo-Ru ships a har
 | N13 | Causal Loop Diagram (CLD) | P1 | mostly a static diagram, see below |
 | N14 | Model Validation panel | P1 | **the 35% AI-Reasoning centerpiece** — backtest (predicted vs actual) + extreme-condition tests + reproduction |
 | N15 | Lifecycle / Governance panel | P1 | **the grad differentiator** — freshness light (real, currently 🟡), drift, bypass conditions, human-in-loop |
+| N16 | Community Exposure panel | P1 | **answers the contest title "communities"** — ranked "who gets hurt first" table/map; the NY-vs-Chicago contrast is the hook |
 | — | Demo shell / layout | P0 | stitch everything into one page |
 | — | Embed Bo-Ru's Live Validation panel | P0 | as a component/route — you just place it |
 
@@ -46,11 +47,13 @@ The contract is **`contracts/scenario_results.example.json`**. Bo-Ru ships a har
 | **N13 CLD** | **No JSON** — static diagram of the R1 / R2 / B1 loops from [masterplan.md](masterplan.md) §7.3 |
 | **N14 Model Validation** | `validation.backtest` (points = predicted vs actual CPC per FY + `mean_abs_cpc_error_pct`), `validation.extreme_conditions[]` (pass/fail), `validation.reproduction[]`, `validation.method_note` |
 | **N15 Lifecycle / Governance** | `lifecycle.freshness` (status + drift_pct), `lifecycle.drift_detection`, `lifecycle.human_in_loop` (ai_informs / human_decides / two_review_cycle / bypass_conditions[]) |
+| **N16 Community Exposure** | `community_exposure.facilities[]` (metro, staffing_pct_of_standard, exposure_index, exposure_rank, nas_delay_cost_usd, airports), `community_exposure.methodology` + `.caveats` |
 | **Policy brief render** | `policy_brief.*` (executive_summary, key_findings, cost_of_delay, recommendations, limitations) |
 | **Live Validation panel** | not your data — embedded from Bo-Ru |
 
 > **Note — N14 is the honesty win, render it straight.** The backtest shows the model **under-predicts CPC ~8%** on the FY2020–2025 (COVID) window, while the FY2015–2025 back-cast reproduces history to **0.01%**. Don't hide the 8% — it's the point: plot predicted-vs-actual, show the growing gap, and caption it "the drift monitor catches the COVID structural break (bypass condition #5)." A model that flags its own failure mode scores higher than a fake-perfect one.
 > **Note — freshness is now COMPUTED, not a decoration.** `meta.freshness` is derived from the backtest drift and currently reads **🟡 yellow** (drift 7.9% > 5% threshold). Render whatever status the JSON carries; pair the light with `lifecycle.drift_detection.on_trigger` so the yellow is explained, not alarming.
+> **Note — N16 lead with the contrast, label the dollar honestly.** The hook is **New York (most exposed) vs Chicago (top-traffic but ~zero exposure because it's 107% staffed)** — exposure tracks the *gap*, not size. Sort by `exposure_index` (a relative rank, the clean number). The `nas_delay_cost_usd` is **real BTS data**, but it is an **NAS-category delay cost = upper bound on the staffing-relevant cost, NOT a "staffing cost"** — always show it with `community_exposure.caveats`. Don't headline the dollar; headline the ranking, attach the dollar as "delay already on the table."
 
 > **Note — `scenarios[].safety.risk_index` is a RELATIVE risk MULTIPLIER** (1.0 = rested baseline; e.g. do-nothing peaks ~3.6×), NOT a 0–1 score or an accident probability. Always render it with the disclaimer + the top-level `safety_context` string (FY2023 near-miss note), and pair it with the money curves — safety is the cost money can't buy back.
 

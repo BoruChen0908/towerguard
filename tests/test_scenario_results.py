@@ -27,6 +27,7 @@ def test_top_level_keys(results: dict) -> None:
         "timing_comparator",
         "sensitivity",
         "assumptions",
+        "community_exposure",
         "validation",
         "lifecycle",
         "policy_brief",
@@ -73,6 +74,16 @@ def test_assumptions_have_source_and_confidence(results: dict) -> None:
     assert results["assumptions"]
     for entry in results["assumptions"]:
         assert {"parameter", "value", "source", "confidence"} <= set(entry)
+
+
+def test_community_block_shape(results: dict) -> None:
+    ce = results["community_exposure"]
+    assert {"methodology", "caveats", "facilities"} <= set(ce)
+    assert ce["facilities"]
+    ranks = [f["exposure_rank"] for f in ce["facilities"]]
+    assert ranks == sorted(ranks)  # delivered already ranked
+    for f in ce["facilities"]:
+        assert {"metro", "exposure_index", "nas_delay_cost_usd"} <= set(f)
 
 
 def test_validation_block_shape(results: dict) -> None:

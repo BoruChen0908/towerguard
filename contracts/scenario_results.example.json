@@ -2,7 +2,7 @@
   "meta": {
     "model_version": "1.0",
     "calibration_date": "2026-06-17",
-    "generated_at": "2026-06-18T03:25:40Z",
+    "generated_at": "2026-06-18T04:01:54Z",
     "horizon": "FY2025-FY2036",
     "data_sources": [
       "GAO-26-107320 (Dec 2025)",
@@ -1005,6 +1005,117 @@
       "confidence": "low"
     }
   ],
+  "community_exposure": {
+    "methodology": "Exposure = max(0, 1 - staffing%) x operations share \u2014 two real facts (National Academies Table 2-6 staffing, FAA OPSNET FY2024 ops) ranked relatively. The dollar is the airport's CY2024 NAS-category delay-minutes (BTS) x $100.76/min (A4A block-time). Unit = the governing ATC facility/metro; N90 sums JFK+LGA+EWR.",
+    "caveats": "The NAS-category delay cost is an UPPER BOUND on the staffing-relevant cost, NOT a 'staffing cost': BTS 'NAS' bundles non-extreme weather, volume and equipment (the staffing-controllable slice is the volume portion \u2014 FAA Core-30 FY2024 ~25%). BTS covers reporting carriers, arriving flights only (~70-80%), so totals undercount; MEM is passenger-only (FedEx does not report), understating the cargo hub. NCT delay = SFO only. Facility ops are FY2024 (all traffic); delay-minutes are CY2024 (arrivals) \u2014 not divided against each other. This is exposure attribution, not an independent regional economic model.",
+    "faa_core30_volume_share": 0.252,
+    "facilities": [
+      {
+        "code": "N90",
+        "metro": "New York",
+        "airports": [
+          "JFK",
+          "LGA",
+          "EWR"
+        ],
+        "staffing_pct_of_standard": 0.72,
+        "staffing_gap": 0.28,
+        "annual_ops": 1848004,
+        "ops_share": 0.3027,
+        "exposure_score": 0.0847,
+        "exposure_index": 1.0,
+        "exposure_rank": 1,
+        "nas_delay_minutes": 2174255,
+        "nas_delay_cost_usd": 219077934,
+        "note": ""
+      },
+      {
+        "code": "NCT",
+        "metro": "San Francisco Bay",
+        "airports": [
+          "SFO"
+        ],
+        "staffing_pct_of_standard": 0.8,
+        "staffing_gap": 0.2,
+        "annual_ops": 1522376,
+        "ops_share": 0.2493,
+        "exposure_score": 0.0499,
+        "exposure_index": 0.588,
+        "exposure_rank": 2,
+        "nas_delay_minutes": 1102917,
+        "nas_delay_cost_usd": 111129917,
+        "note": "Delay = SFO only; OAK/SJC not included, so NCT is understated."
+      },
+      {
+        "code": "A80",
+        "metro": "Atlanta",
+        "airports": [
+          "ATL"
+        ],
+        "staffing_pct_of_standard": 0.78,
+        "staffing_gap": 0.22,
+        "annual_ops": 800196,
+        "ops_share": 0.1311,
+        "exposure_score": 0.0288,
+        "exposure_index": 0.34,
+        "exposure_rank": 3,
+        "nas_delay_minutes": 763292,
+        "nas_delay_cost_usd": 76909302,
+        "note": ""
+      },
+      {
+        "code": "S46",
+        "metro": "Seattle",
+        "airports": [
+          "SEA"
+        ],
+        "staffing_pct_of_standard": 0.67,
+        "staffing_gap": 0.33,
+        "annual_ops": 498297,
+        "ops_share": 0.0816,
+        "exposure_score": 0.0269,
+        "exposure_index": 0.318,
+        "exposure_rank": 4,
+        "nas_delay_minutes": 404312,
+        "nas_delay_cost_usd": 40738477,
+        "note": ""
+      },
+      {
+        "code": "M03",
+        "metro": "Memphis",
+        "airports": [
+          "MEM"
+        ],
+        "staffing_pct_of_standard": 0.71,
+        "staffing_gap": 0.29,
+        "annual_ops": 292564,
+        "ops_share": 0.0479,
+        "exposure_score": 0.0139,
+        "exposure_index": 0.164,
+        "exposure_rank": 5,
+        "nas_delay_minutes": 49014,
+        "nas_delay_cost_usd": 4938651,
+        "note": "Passenger carriers only; FedEx does not report to BTS, so the cargo super-hub is massively understated."
+      },
+      {
+        "code": "C90",
+        "metro": "Chicago",
+        "airports": [
+          "ORD"
+        ],
+        "staffing_pct_of_standard": 1.07,
+        "staffing_gap": 0.0,
+        "annual_ops": 1144563,
+        "ops_share": 0.1874,
+        "exposure_score": 0.0,
+        "exposure_index": 0.0,
+        "exposure_rank": 6,
+        "nas_delay_minutes": 1088047,
+        "nas_delay_cost_usd": 109631616,
+        "note": "Well-staffed (107%) high-traffic CONTRAST: high traffic, ~zero exposure \u2014 exposure tracks the staffing gap, not size."
+      }
+    ]
+  },
   "validation": {
     "backtest": {
       "window": "FY2020-FY2025",
