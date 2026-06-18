@@ -20,6 +20,8 @@ The contract is **`contracts/scenario_results.example.json`**. Bo-Ru ships a har
 | N11 | Sensitivity / Tornado Chart | P1 | |
 | N12 | Assumption Ledger UI | P1 | parameters + sources + confidence |
 | N13 | Causal Loop Diagram (CLD) | P1 | mostly a static diagram, see below |
+| N14 | Model Validation panel | P1 | **the 35% AI-Reasoning centerpiece** — backtest (predicted vs actual) + extreme-condition tests + reproduction |
+| N15 | Lifecycle / Governance panel | P1 | **the grad differentiator** — freshness light (real, currently 🟡), drift, bypass conditions, human-in-loop |
 | — | Demo shell / layout | P0 | stitch everything into one page |
 | — | Embed Bo-Ru's Live Validation panel | P0 | as a component/route — you just place it |
 
@@ -40,10 +42,15 @@ The contract is **`contracts/scenario_results.example.json`**. Bo-Ru ships a har
 | **N6 Scenario Dashboard** | `scenarios[].years`, `scenarios[].series.*` (total_controllers / cpc / staffing_pct_of_target), `scenarios[].bands` (fan chart), `targets` (FAA + NATCA lines) |
 | **N7 Timing Comparator** | `timing_comparator.*` (trajectories, cumulative_cost_gap_usd, net_cost_of_delay_usd) |
 | **N11 Tornado** | `sensitivity[]` |
-| **N12 Assumption Ledger** | `assumptions[]`, `meta` (model_version, calibration_date, freshness 🟢🟡🔴) |
+| **N12 Assumption Ledger** | `assumptions[]`, `meta` (model_version, calibration_date, freshness 🟢🟡🔴), `lifecycle.versioning[]`, `lifecycle.governance[]` |
 | **N13 CLD** | **No JSON** — static diagram of the R1 / R2 / B1 loops from [masterplan.md](masterplan.md) §7.3 |
+| **N14 Model Validation** | `validation.backtest` (points = predicted vs actual CPC per FY + `mean_abs_cpc_error_pct`), `validation.extreme_conditions[]` (pass/fail), `validation.reproduction[]`, `validation.method_note` |
+| **N15 Lifecycle / Governance** | `lifecycle.freshness` (status + drift_pct), `lifecycle.drift_detection`, `lifecycle.human_in_loop` (ai_informs / human_decides / two_review_cycle / bypass_conditions[]) |
 | **Policy brief render** | `policy_brief.*` (executive_summary, key_findings, cost_of_delay, recommendations, limitations) |
 | **Live Validation panel** | not your data — embedded from Bo-Ru |
+
+> **Note — N14 is the honesty win, render it straight.** The backtest shows the model **under-predicts CPC ~8%** on the FY2020–2025 (COVID) window, while the FY2015–2025 back-cast reproduces history to **0.01%**. Don't hide the 8% — it's the point: plot predicted-vs-actual, show the growing gap, and caption it "the drift monitor catches the COVID structural break (bypass condition #5)." A model that flags its own failure mode scores higher than a fake-perfect one.
+> **Note — freshness is now COMPUTED, not a decoration.** `meta.freshness` is derived from the backtest drift and currently reads **🟡 yellow** (drift 7.9% > 5% threshold). Render whatever status the JSON carries; pair the light with `lifecycle.drift_detection.on_trigger` so the yellow is explained, not alarming.
 
 > **Note — `scenarios[].safety.risk_index` is a RELATIVE risk MULTIPLIER** (1.0 = rested baseline; e.g. do-nothing peaks ~3.6×), NOT a 0–1 score or an accident probability. Always render it with the disclaimer + the top-level `safety_context` string (FY2023 near-miss note), and pair it with the money curves — safety is the cost money can't buy back.
 
@@ -66,7 +73,8 @@ The contract is **`contracts/scenario_results.example.json`**. Bo-Ru ships a har
 2. **Show BOTH FAA (12,563) and NATCA (14,633) targets** — don't visually favor either side.
 3. **Assumptions panel is mandatory and always reachable.**
 4. **No single scenario shown/exported without the comparison context** (prevents cherry-picking).
-5. Freshness indicator (🟢🟡🔴) from `meta.freshness` visible on the dashboard.
+5. Freshness indicator (🟢🟡🔴) from `meta.freshness` visible on the dashboard — it is **computed from the backtest drift** (currently 🟡), so show the real value, never hardcode green.
+6. **Surface the validation (N14) and lifecycle (N15) panels** — these are where the 35% (AI Reasoning / evaluation strategy) and the grad "infrastructure thinking" differentiator are won. Don't bury them.
 
 ## Where to find detail
 

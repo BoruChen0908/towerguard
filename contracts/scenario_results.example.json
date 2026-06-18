@@ -2,7 +2,7 @@
   "meta": {
     "model_version": "1.0",
     "calibration_date": "2026-06-17",
-    "generated_at": "2026-06-18T01:59:17Z",
+    "generated_at": "2026-06-18T03:25:40Z",
     "horizon": "FY2025-FY2036",
     "data_sources": [
       "GAO-26-107320 (Dec 2025)",
@@ -13,8 +13,8 @@
       "SAFTE-FAST (Hursh et al. 2004)",
       "NTSB DCA final report (Jan 2026)"
     ],
-    "freshness": "green",
-    "notes": "Per-year arrays span FY2025-FY2036, index-aligned with `years`. Cumulative costs exclude the FY2025 base year (projected FY2026+). safety.risk_index is a RELATIVE risk multiplier (1.0 = baseline), not a probability."
+    "freshness": "yellow",
+    "notes": "Per-year arrays span FY2025-FY2036, index-aligned with `years`. Cumulative costs exclude the FY2025 base year (projected FY2026+). safety.risk_index is a RELATIVE risk multiplier (1.0 = baseline), not a probability. freshness is computed from the validation backtest drift (see `lifecycle`)."
   },
   "targets": {
     "faa": 12563,
@@ -1005,6 +1005,178 @@
       "confidence": "low"
     }
   ],
+  "validation": {
+    "backtest": {
+      "window": "FY2020-FY2025",
+      "points": [
+        {
+          "year": 2020,
+          "predicted_cpc": 10268.0,
+          "actual_cpc": 10268,
+          "predicted_total": 12521.0,
+          "actual_total": 12521.0,
+          "cpc_abs_error_pct": 0.0
+        },
+        {
+          "year": 2021,
+          "predicted_cpc": 10212.1,
+          "actual_cpc": 10580,
+          "predicted_total": 12207.1,
+          "actual_total": 12684.0,
+          "cpc_abs_error_pct": 3.48
+        },
+        {
+          "year": 2022,
+          "predicted_cpc": 10087.4,
+          "actual_cpc": 10578,
+          "predicted_total": 11614.1,
+          "actual_total": 12475.0,
+          "cpc_abs_error_pct": 4.64
+        },
+        {
+          "year": 2023,
+          "predicted_cpc": 9840.4,
+          "actual_cpc": 10593,
+          "predicted_total": 11417.6,
+          "actual_total": 12463.0,
+          "cpc_abs_error_pct": 7.1
+        },
+        {
+          "year": 2024,
+          "predicted_cpc": 9612.5,
+          "actual_cpc": 10730,
+          "predicted_total": 11498.4,
+          "actual_total": 12821.0,
+          "cpc_abs_error_pct": 10.41
+        },
+        {
+          "year": 2025,
+          "predicted_cpc": 9467.7,
+          "actual_cpc": 11000,
+          "predicted_total": 11870.9,
+          "actual_total": 13164.0,
+          "cpc_abs_error_pct": 13.93
+        }
+      ],
+      "mean_abs_cpc_error_pct": 7.91,
+      "final_total_error_pct": 9.82,
+      "drift_threshold_pct": 5.0,
+      "within_threshold": false,
+      "note": "Out-of-sample: parameters were calibrated to the FY2015->2025 endpoints and the FAA plan, NOT to this FY2020-2025 series. CPC (certified-only) is the clean anchor; 'total' carries a CPC-IT definition delta (~950/yr). FY2020 is the seed. FY2023 hires bridged (not published)."
+    },
+    "extreme_conditions": [
+      {
+        "name": "zero_hiring_decays",
+        "expectation": "With hiring = 0 the workforce shrinks well below the start.",
+        "observed": "total 13,164 -> 0 over 15 yr",
+        "passed": true
+      },
+      {
+        "name": "hiring_cannot_shortcut_certification",
+        "expectation": "A 1-yr hiring flood does not raise next-year CPC (2-3 yr lag).",
+        "observed": "next-yr CPC: normal 10,524.1 vs flood 10,524.1",
+        "passed": true
+      },
+      {
+        "name": "zero_attrition_never_shrinks_cpc",
+        "expectation": "With attrition = 0 the CPC stock is non-decreasing.",
+        "observed": "CPC 11,000 -> 20,907, monotonic=True",
+        "passed": true
+      }
+    ],
+    "reproduction": [
+      {
+        "name": "backcast_fy2015_to_2025_total",
+        "predicted": 13166.0,
+        "actual": 13164.0,
+        "abs_error_pct": 0.01,
+        "note": "IN-SAMPLE consistency check: hiring (~1,326/yr) was SOLVED to reproduce this total (D11), so a tight fit confirms internal consistency, not predictive skill. The independent legs are the composition (below) and the FY2020-2025 backtest."
+      },
+      {
+        "name": "backcast_fy2025_cpc_composition",
+        "predicted": 10982.0,
+        "actual": 11000.0,
+        "abs_error_pct": 0.16,
+        "note": "SEMI-INDEPENDENT: hiring was solved for the TOTAL, not the CPC/Dev split \u2014 so reproducing the ~11,000 CPC composition is a meaningful check (OJT washout, D13, is what pinned it down)."
+      },
+      {
+        "name": "forward_developmental_checkpoint_fy2026",
+        "predicted": 2661.0,
+        "actual": 3000.0,
+        "abs_error_pct": 11.29,
+        "note": "Independent (not fitted), order-of-magnitude only: FAA/Reuters Apr-2026 reports ~4,000 'in training' = Dev + ~1,000 CPC-IT, so the Dev-only comparator is ~3,000 (derived). The model lands in the right ballpark for the in-training surge."
+      }
+    ],
+    "face_validity": "The do-nothing collapse and the 'hiring grows headcount but certified controllers barely move' dynamic match the qualitative warnings of GAO-26-107320 and the National Academies/TRB (Jun 2025) \u2014 directionally consistent with independent expert assessment.",
+    "method_note": "Validated as a strategic system-dynamics model (behaviour reproduction, extreme-condition tests, out-of-sample backtest, sensitivity \u2014 see the `sensitivity` block), NOT as a point-prediction accuracy score. Policy models must represent uncertainty, not certainty."
+  },
+  "lifecycle": {
+    "freshness": {
+      "status": "yellow",
+      "drift_pct": 7.91,
+      "threshold_pct": 5.0,
+      "basis": "Mean absolute CPC error of the FY2020-2025 out-of-sample backtest (N-eval). Green <=5%, yellow <=10%, red >10%."
+    },
+    "drift_detection": {
+      "method": "Compare the model's CPC projection against each new FAA CWP actual; |predicted - actual| / actual is the drift.",
+      "threshold_pct": 5.0,
+      "current_drift_pct": 7.91,
+      "triggered": true,
+      "on_trigger": "Recalibrate against the latest CWP and flag bypass condition #5 (structural break) \u2014 the FY2020-2025 divergence is the COVID era."
+    },
+    "human_in_loop": {
+      "ai_informs": [
+        "Projects the workforce pipeline across scenarios (with confidence bands)",
+        "Quantifies the cost of delaying an intervention",
+        "Generates the policy brief and explains the feedback-loop dynamics"
+      ],
+      "human_decides": [
+        "How many controllers to hire and at what pace",
+        "Where to allocate staff across facilities",
+        "What level of safety risk is acceptable",
+        "Whether and when to act on the projection"
+      ],
+      "two_review_cycle": [
+        "Changing any calibration parameter (requires a source citation + a confidence rating before it is accepted)",
+        "Publishing a brief that feeds an appropriations decision (model owner + domain reviewer sign-off)"
+      ],
+      "bypass_conditions": [
+        {
+          "condition": "During a government shutdown",
+          "why": "Historical attrition / hiring rates do not hold; the pipeline is interrupted (see the 2025 shutdown: ~450 trainee losses)."
+        },
+        {
+          "condition": "Individual facility staffing decisions",
+          "why": "This is a strategic, national-aggregate model, not a facility-level scheduler \u2014 use the FAA CRWG/AFN tools for a single tower/TRACON."
+        },
+        {
+          "condition": "Extrapolation beyond the calibration range",
+          "why": "e.g. hiring above the Academy's maximum throughput \u2014 the pipeline constants were not fit there; results are unsupported."
+        },
+        {
+          "condition": "Setting an 'acceptable' risk level",
+          "why": "That is a political / ethical judgement. The model quantifies relative risk; it does not decide what risk is tolerable."
+        },
+        {
+          "condition": "Immediately after a structural break",
+          "why": "Pandemics or major policy changes break the calibrated relationships \u2014 exactly what the FY2020-2025 backtest divergence shows."
+        }
+      ]
+    },
+    "governance": [
+      "Parameter changes require a source citation and a confidence rating.",
+      "Every output is tagged with the model version and calibration date.",
+      "A single scenario cannot be exported without its full comparison context (prevents cherry-picking).",
+      "Safety outputs always carry uncertainty bands and the relative-risk disclaimer; both the FAA and NATCA targets are always shown."
+    ],
+    "versioning": [
+      {
+        "version": "1.0",
+        "date": "2026-06-17",
+        "note": "Initial release. Calibrated to GAO-26-107320 (FY2015-2025) and FAA CWP 2025-2028 / 2026-2028; validated with the FY2020-2025 backtest."
+      }
+    ]
+  },
   "policy_brief": {
     "executive_summary": "On the do-nothing path, the certified controller (CPC) workforce is projected to fall from 11,000 to about 2,412 by FY2036 (~78%), while staffing stays below the 85% safety floor for the entire projection. Executing the current FAA plan instead of doing nothing avoids on the order of $365B in controller-attributable delay and overtime costs over the decade. The cost of waiting is front-loaded and largely irreversible: the certification pipeline takes years, so a hire today reaches the line in 2-3 years.",
     "key_findings": [

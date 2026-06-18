@@ -27,6 +27,8 @@ def test_top_level_keys(results: dict) -> None:
         "timing_comparator",
         "sensitivity",
         "assumptions",
+        "validation",
+        "lifecycle",
         "policy_brief",
     }
 
@@ -71,6 +73,31 @@ def test_assumptions_have_source_and_confidence(results: dict) -> None:
     assert results["assumptions"]
     for entry in results["assumptions"]:
         assert {"parameter", "value", "source", "confidence"} <= set(entry)
+
+
+def test_validation_block_shape(results: dict) -> None:
+    v = results["validation"]
+    assert {"backtest", "extreme_conditions", "reproduction", "face_validity",
+            "method_note"} <= set(v)
+    assert v["backtest"]["points"]
+    assert len(v["extreme_conditions"]) == 3
+    assert {"mean_abs_cpc_error_pct", "drift_threshold_pct", "within_threshold"} <= set(
+        v["backtest"]
+    )
+
+
+def test_lifecycle_block_shape(results: dict) -> None:
+    lc = results["lifecycle"]
+    assert {"freshness", "drift_detection", "human_in_loop", "governance",
+            "versioning"} <= set(lc)
+    assert lc["freshness"]["status"] in {"green", "yellow", "red"}
+    assert len(lc["human_in_loop"]["bypass_conditions"]) == 5
+    assert lc["human_in_loop"]["ai_informs"] and lc["human_in_loop"]["human_decides"]
+
+
+def test_freshness_is_computed_from_lifecycle(results: dict) -> None:
+    # meta.freshness must mirror the computed lifecycle light, not a constant.
+    assert results["meta"]["freshness"] == results["lifecycle"]["freshness"]["status"]
 
 
 def test_is_json_serialisable(results: dict) -> None:

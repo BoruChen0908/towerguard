@@ -39,6 +39,7 @@ from models.economic_impact import (
     cumulative_cost,
     net_cost_of_delay,
 )
+from models.lifecycle import build_lifecycle
 from models.monte_carlo import run_monte_carlo
 from models.policy_brief import generate_brief
 from models.safety_risk import annual_risk_index, safety_metrics
@@ -49,6 +50,7 @@ from models.scenario_engine import (
     run_scenario,
     timing_comparison,
 )
+from models.validation import build_validation, run_backtest
 from models.workforce_sd import LoopParams, WorkforceState, feedback_factors
 
 MODEL_VERSION = "1.0"
@@ -198,6 +200,11 @@ def build_results(loop: LoopParams | None = None) -> dict:
     """Assemble the full scenario-results structure (the frontend JSON contract)."""
     active = loop if loop is not None else LoopParams()
     results = run_all()
+    # One backtest powers BOTH the validation block and the freshness light, so
+    # the evaluation story and the drift signal stay consistent (N-eval/N-lifecycle).
+    backtest = run_backtest()
+    validation = build_validation(backtest)
+    lifecycle = build_lifecycle(backtest)
     return {
         "meta": {
             "model_version": MODEL_VERSION,
@@ -205,12 +212,13 @@ def build_results(loop: LoopParams | None = None) -> dict:
             "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "horizon": f"FY2025-FY{2025 + cal.SCENARIO_HORIZON_YEARS}",
             "data_sources": DATA_SOURCES,
-            "freshness": "green",
+            "freshness": lifecycle.freshness.status,  # COMPUTED from drift, not hardcoded
             "notes": (
                 "Per-year arrays span FY2025-FY2036, index-aligned with `years`. "
                 "Cumulative costs exclude the FY2025 base year (projected FY2026+). "
                 "safety.risk_index is a RELATIVE risk multiplier (1.0 = baseline), "
-                "not a probability."
+                "not a probability. freshness is computed from the validation "
+                "backtest drift (see `lifecycle`)."
             ),
         },
         "targets": {"faa": cal.TARGET_FAA, "natca": cal.TARGET_NATCA},
@@ -224,6 +232,8 @@ def build_results(loop: LoopParams | None = None) -> dict:
         "timing_comparator": _timing_block(active),
         "sensitivity": _sensitivity_block(),
         "assumptions": _assumptions_ledger(),
+        "validation": asdict(validation),
+        "lifecycle": asdict(lifecycle),
         "policy_brief": asdict(generate_brief(results, active)),
     }
 

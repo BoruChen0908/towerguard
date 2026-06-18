@@ -238,6 +238,23 @@ PROVENANCE & DECISIONS — N5 (safety risk, §9)
       vs-fatigue dataset exists (that IS the rare-event problem). months_below_85pct
       counts projected years with CPC < 85% of the FAA target, x12. The near-miss
       trend (FY2023: 19 serious, 7-yr high) is corroborating CONTEXT, not a fit.
+
+--------------------------------------------------------------------------------
+PROVENANCE & DECISIONS — validation data (FY2020-2025 backtest, §12.3)
+--------------------------------------------------------------------------------
+  D21 Backtest actuals. The CPC/Developmental split exists ONLY for FY2020-2025
+      (modern FAA CWP facility tables split CPC / CPC-IT / Dev). FY2015-2019
+      editions published only a COMBINED CPC+CPC-IT line — no bare CPC, no
+      standalone Dev — so a CPC-resolved backtest is only possible on the
+      FY2020-2025 window. HISTORICAL_ACTUALS holds the verified figures:
+      cpc = certified-only; dev = facility developmentals (EXCLUDES CPC-IT,
+      ~950/yr). FY2023 hires are not published anywhere
+      (BACKTEST_FY2023_HIRES_GAPFILL bridges that one year for the sim driver
+      only — NOT a comparison anchor). Correction logged: "11,855 = FY2024
+      CPC+CPC-IT" was a MISLABEL — that is the FY2025 PROJECTION; FY2024 actual
+      is CPC 10,730 / CPC+CPC-IT 11,686 (FAA CWP 2025 Fig 2.2, verified against
+      the source PDF). DRIFT_THRESHOLD_PCT (5%) is the predicted-vs-actual CPC
+      error above which the lifecycle layer flags model drift (§12.1).
 ================================================================================
 """
 
@@ -308,6 +325,22 @@ TARGET_NATCA = 14633                 # NATCA / CRWG preferred
 # ---------------------------------------------------------------------------
 HISTORICAL_CPC_TOTAL_RATIO = CPC_FY2025 / TOTAL_CONTROLLERS_FY2025  # 0.836 — FY2015 proxy
 IMPLIED_HISTORICAL_HIRING = 1326     # solved with OJT washout on + historical attrition (D15)
+
+# ---------------------------------------------------------------------------
+# Backtest validation actuals — FY2020-2025 (§12.3). See D21. The CPC/Dev split
+# exists ONLY for this window; cpc = certified-only, dev EXCLUDES CPC-IT (~950/yr).
+# fiscal year -> {cpc, dev, hires}; None = not published in any source.
+# ---------------------------------------------------------------------------
+HISTORICAL_ACTUALS: dict[int, dict[str, float | None]] = {
+    2020: {"cpc": 10268, "dev": 2253, "hires": 920},   # FAA CWP 2021 facility table
+    2021: {"cpc": 10580, "dev": 2104, "hires": 500},   # FAA CWP 2022; GAO COVID low
+    2022: {"cpc": 10578, "dev": 1897, "hires": 1026},  # FAA CWP 2023 facility table
+    2023: {"cpc": 10593, "dev": 1870, "hires": None},  # FAA CWP 2024; FY2023 hires not found
+    2024: {"cpc": 10730, "dev": 2091, "hires": 1811},  # FAA CWP 2025 Fig 2.2 (verified)
+    2025: {"cpc": 11000, "dev": None, "hires": 2028},  # cpc = Apr-2026 FAA snapshot; dev not split
+}
+BACKTEST_FY2023_HIRES_GAPFILL = 1400  # bridge only (FY2022 1,026 -> FY2024 1,811); NOT published
+DRIFT_THRESHOLD_PCT = 5.0             # |pred-actual|/actual above this flags drift (§12.1, D21)
 
 # ---------------------------------------------------------------------------
 # Feedback-loop parameters — stage 1b (R1/R2/B1, §7.3). See D7-D10 above.
