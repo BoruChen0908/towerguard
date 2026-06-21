@@ -575,7 +575,23 @@ export function createAdvisoryRail(railEl, emptyEl) {
     // unknown new_state: tolerate, do nothing
   }
 
-  return { handle, handleLifecycle };
+  // Drop every card + reset counters (used on airport switch — the previous
+  // airport's advisories no longer describe what is being monitored). The Redis
+  // shift-event history is untouched; this only clears the live rail.
+  function clear() {
+    for (const [, entry] of cards) {
+      if (entry.reassessTimer) clearTimeout(entry.reassessTimer);
+      entry.card.remove();
+    }
+    cards.clear();
+    pendingReassess.clear();
+    acknowledgedCount = 0;
+    dismissedCount = 0;
+    refreshDecisionChip();
+    refreshEmpty();
+  }
+
+  return { handle, handleLifecycle, clear };
 }
 
 function escapeHtml(s) {

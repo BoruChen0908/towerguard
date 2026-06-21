@@ -54,7 +54,16 @@ export function createEventStrip(stripEl, emptyEl) {
     stripEl.scrollLeft = stripEl.scrollWidth;
   }
 
-  return { handle };
+  // Reset the displayed strip (used on airport switch). The Redis shift-event
+  // stream — the Narrator's source of truth — is NOT touched; this only clears
+  // the on-screen chips so the strip reads per-airport after a switch.
+  function clear() {
+    for (const chip of chips) chip.remove();
+    chips.length = 0;
+    refreshEmpty();
+  }
+
+  return { handle, clear };
 }
 
 function buildChip(ev) {

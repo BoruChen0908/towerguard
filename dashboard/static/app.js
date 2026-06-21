@@ -104,6 +104,8 @@ createAirportSwitcher({
     pendingAirport = icao;
     mapView.recenterTo(icao);   // recenter + clear fleet immediately
     panels.setSwitching(true);  // neutral faint state until new-airport data
+    advisoryRail.clear();       // drop the previous airport's advisories
+    eventStrip.clear();         // reset the shift strip (Redis history kept)
     conflictPair = [];
     lastSnapshot = null;
   },

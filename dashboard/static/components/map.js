@@ -23,6 +23,16 @@ const AIRPORTS = {
   KBOS: [42.3656, -71.0096],
   KATL: [33.6407, -84.4277],
   KLGA: [40.7769, -73.8740],
+  KLAX: [33.9425, -118.4081],
+  KSFO: [37.6188, -122.375],
+  KORD: [41.9742, -87.9073],
+  KDFW: [32.8998, -97.0403],
+  KDEN: [39.8561, -104.6737],
+  KSEA: [47.4502, -122.3088],
+  KLAS: [36.084, -115.1537],
+  KMIA: [25.7932, -80.2906],
+  KDCA: [38.8512, -77.0402],
+  KCLT: [35.214, -80.9431],
 };
 
 /**
@@ -68,6 +78,7 @@ export function createMap(elId) {
   // icao24 -> { marker, callsign, anchor:{lat,lon,velocity_kt,heading}, snapMs }
   const markers = new Map();
   let rangeRing = null;
+  let airportMarker = null; // the glowing marker at the selected airport
   let conflictLines = [];
   let conflictPair = []; // callsigns of the active conflict pair, or []
   let centered = false;
@@ -113,6 +124,23 @@ export function createMap(elId) {
       fillOpacity: 0.05,
       dashArray: "4 6",
       interactive: false,
+    }).addTo(map);
+
+    // Glowing marker at the selected airport so it lights up on the map.
+    if (airportMarker) map.removeLayer(airportMarker);
+    airportMarker = L.marker(center, {
+      icon: L.divIcon({
+        className: "tg-airport-wrap",
+        html:
+          '<div style="width:13px;height:13px;border-radius:50%;' +
+          "background:#39c0ff;border:2px solid #d7f3ff;" +
+          'box-shadow:0 0 14px 5px rgba(57,192,255,.85),0 0 5px 2px rgba(255,255,255,.9);">' +
+          "</div>",
+        iconSize: [13, 13],
+        iconAnchor: [6, 6],
+      }),
+      interactive: false,
+      zIndexOffset: 1000, // sits above aircraft markers
     }).addTo(map);
 
     if (!centered || recenter) {
