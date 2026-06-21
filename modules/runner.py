@@ -30,7 +30,7 @@ from dashboard.topics import (
     DEMO_FLAGS,
     SELECTED_AIRPORT_KEY,
 )
-from data.opensky import OpenSkyUnavailable, fetch_states
+from data.opensky import OpenSkyUnavailable, fetch_states, is_airborne
 from modules import conflict_geometry, traffic_density, workload_index
 from modules.envelope import to_json, utc_now_iso
 
@@ -196,7 +196,10 @@ def run_cycle(
     # --- Publish demo-internal aircraft snapshot for the dashboard map ---
     # Only when live data exists; an UNKNOWN cycle has no positions to draw.
     if states is not None:
-        snapshot = _build_snapshot(airport_icao, states)
+        # Draw only airborne traffic on the map, so the dots match the
+        # (airborne) aircraft count and conflicts (config.MIN_AIRBORNE_SPEED_KTS).
+        airborne = [s for s in states if is_airborne(s)]
+        snapshot = _build_snapshot(airport_icao, airborne)
         _publish_raw(redis_client, TOPIC_AIRCRAFT_SNAPSHOT, snapshot)
 
 

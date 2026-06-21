@@ -96,6 +96,18 @@ class TestCompute:
         event = compute("KJFK", [])
         assert event["event_type"] == "traffic_density"
 
+    def test_ground_and_slow_aircraft_excluded_from_count(self):
+        # Only genuinely airborne traffic counts; on_ground and ~zero-speed
+        # surface aircraft are excluded (config.MIN_AIRBORNE_SPEED_KTS).
+        states = [
+            _make_state(velocity=250.0),                   # airborne
+            _make_state(velocity=300.0),                   # airborne
+            _make_state(velocity=250.0, on_ground=True),   # on the ground
+            _make_state(velocity=5.0),                     # taxiing / parked
+        ]
+        event = compute("KJFK", states)
+        assert event["aircraft_count"] == 2
+
     def test_airport_in_output(self):
         event = compute("KATL", [])
         assert event["airport"] == "KATL"

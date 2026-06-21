@@ -96,8 +96,13 @@ def _headon_pair(start_sep_nm: float, alt_gap_ft: float = 0.0) -> tuple[dict, di
 
 class TestIsValidState:
     def test_airborne_valid(self):
-        s = _make_aircraft(lat=40.0, lon=-73.0)
+        s = _make_aircraft(lat=40.0, lon=-73.0, velocity_kts=200.0)
         assert _is_valid_state(s) is True
+
+    def test_airborne_but_stationary_invalid(self):
+        # on_ground=False but ~zero groundspeed = surface/ramp clutter → excluded
+        s = _make_aircraft(lat=40.0, lon=-73.0, velocity_kts=0.0)
+        assert _is_valid_state(s) is False
 
     def test_on_ground_invalid(self):
         s = _make_aircraft(on_ground=True)
@@ -191,8 +196,11 @@ class TestCompute:
         event = compute("KJFK", states)
         assert event["pairs_checked"] == 0
 
-    def test_stationary_same_position_conflict(self):
-        """Two aircraft at identical location, same altitude → conflict."""
+    def test_stationary_surface_aircraft_excluded(self):
+        """Co-located but stationary (velocity ~0) aircraft are surface/ramp
+        clutter — on_ground=False yet ~zero groundspeed — and are excluded from
+        conflict scope, so they produce no spurious 0.0 NM conflict
+        (config.MIN_AIRBORNE_SPEED_KTS). This is the live ground-clutter fix."""
         a1 = _make_aircraft(
             icao24="aa0001",
             callsign="TST001",
@@ -210,14 +218,28 @@ class TestCompute:
             velocity_kts=0.0,
         )
         event = compute("KJFK", [a1, a2])
+        assert event["pairs_checked"] == 0
+        assert event["conflicts_detected"] == 0
+        assert event["closest_pair"] is None
+        assert event["tier"] == "LOW"
+
+    def test_airborne_same_position_conflict(self):
+        """Two co-located, co-altitude AIRBORNE aircraft still conflict."""
+        a1 = _make_aircraft(
+            icao24="aa0011", lat=40.64, lon=-73.78, altitude_ft=5000.0, velocity_kts=200.0
+        )
+        a2 = _make_aircraft(
+            icao24="aa0012", lat=40.64, lon=-73.78, altitude_ft=5000.0, velocity_kts=200.0
+        )
+        event = compute("KJFK", [a1, a2])
         assert event["conflicts_detected"] >= 1
         assert event["closest_pair"] is not None
 
     def test_well_separated_aircraft_no_conflict(self):
         """Two aircraft 100 NM apart — no conflict in 120s at 300 kts."""
-        a1 = _make_aircraft(icao24="bb0001", lat=40.0, lon=-73.0, velocity_kts=0.0)
+        a1 = _make_aircraft(icao24="bb0001", lat=40.0, lon=-73.0, velocity_kts=300.0)
         a2 = _make_aircraft(
-            icao24="bb0002", lat=42.0, lon=-73.0, velocity_kts=0.0
+            icao24="bb0002", lat=42.0, lon=-73.0, velocity_kts=300.0
         )  # ~120 NM apart
         event = compute("KJFK", [a1, a2])
         assert event["conflicts_detected"] == 0
@@ -225,10 +247,10 @@ class TestCompute:
 
     def test_closest_pair_has_required_fields(self):
         a1 = _make_aircraft(
-            icao24="cc0001", lat=40.64, lon=-73.78, altitude_ft=1000.0, velocity_kts=0.0
+            icao24="cc0001", lat=40.64, lon=-73.78, altitude_ft=1000.0, velocity_kts=200.0
         )
         a2 = _make_aircraft(
-            icao24="cc0002", lat=40.64, lon=-73.78, altitude_ft=1000.0, velocity_kts=0.0
+            icao24="cc0002", lat=40.64, lon=-73.78, altitude_ft=1000.0, velocity_kts=200.0
         )
         event = compute("KJFK", [a1, a2])
         # Co-located, co-altitude pair must conflict — assert the pair exists

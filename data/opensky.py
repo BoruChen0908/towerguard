@@ -37,6 +37,21 @@ class OpenSkyAuthError(OpenSkyUnavailable):
     """Raised when token refresh fails or auth is permanently broken."""
 
 
+def is_airborne(state: dict[str, Any]) -> bool:
+    """True if a parsed state vector is a genuinely airborne, moving aircraft.
+
+    Excludes aircraft flagged ``on_ground`` AND surface/taxiing aircraft that
+    OpenSky reports with ``on_ground=False`` but a near-zero groundspeed (live
+    ramp clutter that otherwise produces 0.0 NM "conflicts" and inflates the
+    aircraft count). ``velocity`` is in knots after the parse boundary; a missing
+    ``on_ground`` is treated conservatively as on-ground. Shared by
+    traffic_density, conflict_geometry, and the runner's map snapshot.
+    """
+    if state.get("on_ground", True):
+        return False
+    return (state.get("velocity") or 0.0) >= config.MIN_AIRBORNE_SPEED_KTS
+
+
 # ---------------------------------------------------------------------------
 # Token cache (module-level, reset on process restart)
 # ---------------------------------------------------------------------------

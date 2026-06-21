@@ -10,6 +10,7 @@ import math
 from typing import Any
 
 import config
+from data.opensky import is_airborne
 from modules.envelope import (
     build_unavailable_base,
     next_alert_id,
@@ -61,6 +62,9 @@ def compute(
     Returns:
         A validated event dict ready for JSON serialisation.
     """
+    # Count only genuinely airborne traffic — surface / taxiing aircraft (live
+    # ramp clutter) are out of airspace-density scope (see config.MIN_AIRBORNE_SPEED_KTS).
+    states = [s for s in states if is_airborne(s)]
     aircraft_count = len(states)
 
     # Collect valid speed and altitude values (OpenSky may return None)

@@ -29,6 +29,7 @@ import math
 from typing import Any, Optional
 
 import config
+from data.opensky import is_airborne
 from modules.envelope import (
     build_unavailable_base,
     next_alert_id,
@@ -109,11 +110,15 @@ def _vertical_separation_ft(
 
 
 def _is_valid_state(s: dict[str, Any]) -> bool:
-    """Return True if the state vector has the minimum fields for projection."""
+    """Return True if the state vector has the minimum fields for projection.
+
+    Airborne check (on_ground + groundspeed floor) is shared via is_airborne so
+    surface / taxiing aircraft never generate spurious 0.0 NM conflicts.
+    """
     return (
         s.get("latitude") is not None
         and s.get("longitude") is not None
-        and not s.get("on_ground", True)
+        and is_airborne(s)
     )
 
 

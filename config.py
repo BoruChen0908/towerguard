@@ -248,6 +248,15 @@ CG_VERTICAL_SEPARATION_FT = 1000.0  # ICAO vertical minimum — FAA JO 7110.65 �
 CG_CRITICAL_THRESHOLD_SECONDS = 60
 CG_HIGH_THRESHOLD_SECONDS = 90
 
+# Aircraft slower than this groundspeed (knots) are treated as on-surface /
+# taxiing and excluded from airborne traffic + conflict scope (shared by
+# traffic_density, conflict_geometry, and the map snapshot via
+# data.opensky.is_airborne). This filters live-data ground clutter — parked /
+# taxiing aircraft that OpenSky reports with on_ground=False but ~zero speed,
+# which otherwise inflate the count and produce 0.0 NM "conflicts". DEMO traffic
+# is all >=180 kt, so DEMO behaviour is unchanged.
+MIN_AIRBORNE_SPEED_KTS = 50.0
+
 # ---------------------------------------------------------------------------
 # Workload Index scoring weights (must sum to 1.0)
 # ---------------------------------------------------------------------------
