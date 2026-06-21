@@ -111,6 +111,74 @@ AIRPORTS: dict[str, AirportConfig] = {
         active_frequencies=3,
         handoff_rate_per_hour=11,
     ),
+    # --- Extended airport set (live OpenSky demo) -------------------------
+    # lat/lon are exact (public). For SFO/SEA/ORD the staffing ratio matches
+    # the N16 community-exposure figures (National Academies Table 2-6). For
+    # the others, controller counts are size-scaled ESTIMATES (not a cited CWP
+    # page) — traffic/conflict come live from OpenSky regardless.
+    "KLAX": AirportConfig(
+        icao="KLAX", name="Los Angeles International",
+        lat=33.9425, lon=-118.4081,
+        recommended_controllers=48, staffed_controllers=36,
+        active_frequencies=5, handoff_rate_per_hour=16,
+    ),
+    "KSFO": AirportConfig(
+        icao="KSFO", name="San Francisco International",
+        lat=37.6188, lon=-122.3750,
+        # NCT ~80% staffed (N16)
+        recommended_controllers=40, staffed_controllers=32,
+        active_frequencies=4, handoff_rate_per_hour=14,
+    ),
+    "KORD": AirportConfig(
+        icao="KORD", name="Chicago O'Hare International",
+        lat=41.9742, lon=-87.9073,
+        # C90 ~107% staffed (N16) — the well-staffed high-traffic contrast
+        recommended_controllers=55, staffed_controllers=59,
+        active_frequencies=6, handoff_rate_per_hour=18,
+    ),
+    "KDFW": AirportConfig(
+        icao="KDFW", name="Dallas/Fort Worth International",
+        lat=32.8998, lon=-97.0403,
+        recommended_controllers=50, staffed_controllers=39,
+        active_frequencies=5, handoff_rate_per_hour=16,
+    ),
+    "KDEN": AirportConfig(
+        icao="KDEN", name="Denver International",
+        lat=39.8561, lon=-104.6737,
+        recommended_controllers=48, staffed_controllers=37,
+        active_frequencies=5, handoff_rate_per_hour=15,
+    ),
+    "KSEA": AirportConfig(
+        icao="KSEA", name="Seattle-Tacoma International",
+        lat=47.4502, lon=-122.3088,
+        # S46 ~67% staffed (N16)
+        recommended_controllers=36, staffed_controllers=24,
+        active_frequencies=4, handoff_rate_per_hour=13,
+    ),
+    "KLAS": AirportConfig(
+        icao="KLAS", name="Harry Reid International (Las Vegas)",
+        lat=36.0840, lon=-115.1537,
+        recommended_controllers=38, staffed_controllers=29,
+        active_frequencies=4, handoff_rate_per_hour=13,
+    ),
+    "KMIA": AirportConfig(
+        icao="KMIA", name="Miami International",
+        lat=25.7932, lon=-80.2906,
+        recommended_controllers=42, staffed_controllers=32,
+        active_frequencies=4, handoff_rate_per_hour=14,
+    ),
+    "KDCA": AirportConfig(
+        icao="KDCA", name="Ronald Reagan Washington National",
+        lat=38.8512, lon=-77.0402,
+        recommended_controllers=30, staffed_controllers=22,
+        active_frequencies=3, handoff_rate_per_hour=12,
+    ),
+    "KCLT": AirportConfig(
+        icao="KCLT", name="Charlotte Douglas International",
+        lat=35.2140, lon=-80.9431,
+        recommended_controllers=42, staffed_controllers=33,
+        active_frequencies=4, handoff_rate_per_hour=14,
+    ),
 }
 
 DEFAULT_AIRPORT = "KJFK"
@@ -119,6 +187,33 @@ DEFAULT_AIRPORT = "KJFK"
 # Redis
 # ---------------------------------------------------------------------------
 REDIS_URL_DEFAULT = "redis://localhost:6379/0"
+
+# ---------------------------------------------------------------------------
+# LLM augmentation (optional — Live Validation advisory / briefing phrasing)
+# ---------------------------------------------------------------------------
+# The deterministic AdvisoryEngine always decides WHETHER and WHEN to issue an
+# advisory and enforces every guardrail (dedup, cooldown, supersede/resolve,
+# human-override fields). The LLM, when enabled, only rewrites the human-facing
+# text — the advisory summary / recommended_attention and the relief briefing
+# prose — from the same structured signals. Any failure (no key, network, parse)
+# falls back to the deterministic template, so the demo always runs offline.
+LLM_MODEL_DEFAULT = "claude-opus-4-8"
+
+
+def llm_model() -> str:
+    """The Claude model id used for advisory/briefing phrasing."""
+    return os.getenv("TOWERGUARD_LLM_MODEL", LLM_MODEL_DEFAULT)
+
+
+def llm_enabled() -> bool:
+    """True only when augmentation is explicitly enabled AND a key is present.
+
+    Defaults OFF so the test suite and the offline demo never touch the network;
+    callers degrade to the deterministic template whenever this is False.
+    """
+    if os.getenv("TOWERGUARD_USE_LLM", "0").lower() not in ("1", "true", "yes"):
+        return False
+    return bool(os.getenv("ANTHROPIC_API_KEY"))
 
 # ---------------------------------------------------------------------------
 # Traffic Density scoring weights (must sum to 1.0)

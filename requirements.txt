@@ -1,6 +1,7 @@
 requests
 redis
 fakeredis
+anthropic
 pytest
 pytest-cov
 python-dotenv

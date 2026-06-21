@@ -56,6 +56,7 @@ from pathlib import Path
 
 import redis
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from sse_starlette.sse import EventSourceResponse
@@ -171,9 +172,37 @@ async def lifespan(app: FastAPI):
         bridge.stop()
 
 
+def _cors_origins() -> list[str]:
+    """Allowed cross-origin hosts from TOWERGUARD_CORS_ORIGINS (comma-separated).
+
+    Empty/unset → no CORS middleware is added (the app stays same-origin only, so
+    local runs and tests are unchanged). Set this to the hosted dashboard's
+    origin — or "*" for a throwaway demo — when serving the live SSE feed to a
+    cloud-hosted frontend through a public tunnel (ngrok / cloudflared).
+    """
+    raw = os.getenv("TOWERGUARD_CORS_ORIGINS", "").strip()
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
 def create_app() -> FastAPI:
     """Application factory — keeps the app testable with a custom lifespan."""
     app = FastAPI(title="TowerGuard Dashboard", lifespan=lifespan)
+
+    # Optional CORS for serving the live feed to a cross-origin (cloud-hosted)
+    # frontend via a public tunnel. Off unless TOWERGUARD_CORS_ORIGINS is set, so
+    # the default same-origin behaviour (and the tests) are untouched.
+    origins = _cors_origins()
+    if origins:
+        wildcard = "*" in origins
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            # "*" + credentials is rejected by browsers; only allow credentials
+            # when origins are explicitly enumerated.
+            allow_credentials=not wildcard,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # Static files. The directory is the frontend agent's domain; we only mount
     # it. mkdir(exist_ok=True) so the mount does not fail before they land files.

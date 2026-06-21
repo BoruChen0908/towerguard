@@ -31,6 +31,7 @@ from typing import Any, Optional
 import redis
 
 import config
+from agents import llm_client
 from dashboard.shift_stream import (
     KIND_TIER_CHANGE,
     read_recent,
@@ -176,11 +177,15 @@ def publish_briefing(
     redis_client: redis.Redis,
     briefing_id: str,
     airport: str,
+    narrator: Optional[Any] = None,
 ) -> None:
     """Assemble a dynamic briefing from the shift log and publish it.
 
     The five sections are generated from read_recent shift events plus the live
-    decision keys, so the markdown reflects the actual shift each render.
+    decision keys, so the markdown reflects the actual shift each render. When a
+    ``narrator`` (agents.narrator.BriefingNarrator) is supplied, it rewrites the
+    deterministic markdown into more fluent prose — grounded in the same events,
+    falling back to the template if the rewrite drops a required marker.
     """
     events = read_recent(redis_client, count=50)
     payload = advisory_briefing.build_briefing_payload(
@@ -189,6 +194,11 @@ def publish_briefing(
         events=events,
         decision_of=_decision_of(redis_client),
     )
+    if narrator is not None:
+        try:
+            payload["markdown"] = narrator.render(payload["markdown"])
+        except Exception as exc:  # pragma: no cover - narrator self-guards
+            logger.warning("narrator failed, using template briefing: %s", exc)
     try:
         from dashboard.shift_stream import KIND_BRIEFING
 
@@ -286,9 +296,25 @@ def _listen_reassess(
 # ---------------------------------------------------------------------------
 
 
+def _build_llm_agents() -> tuple[Optional[Any], Optional[Any]]:
+    """Construct (phraser, narrator) when LLM augmentation is on, else (None, None).
+
+    Imported lazily so the deterministic path never depends on the agents.
+    """
+    if not llm_client.available():
+        logger.info("LLM augmentation OFF — deterministic template advisories/briefings")
+        return None, None
+    from agents.narrator import BriefingNarrator
+    from agents.orchestrator import AdvisoryPhraser
+
+    logger.info("LLM augmentation ON — model=%s", config.llm_model())
+    return AdvisoryPhraser(), BriefingNarrator()
+
+
 def run_forever() -> None:
     redis_client = _build_redis_client()
-    engine = AdvisoryEngine(redis_client, _AIRPORT)
+    phraser, narrator = _build_llm_agents()
+    engine = AdvisoryEngine(redis_client, _AIRPORT, phraser=phraser)
 
     # A re-assess sets this so the main loop emits an out-of-band briefing.
     briefing_due = threading.Event()
@@ -319,7 +345,9 @@ def run_forever() -> None:
         if now >= next_briefing or briefing_due.is_set():
             briefing_due.clear()
             counter += 1
-            publish_briefing(redis_client, _next_briefing_id(counter), _AIRPORT)
+            publish_briefing(
+                redis_client, _next_briefing_id(counter), _AIRPORT, narrator=narrator
+            )
             next_briefing = time.monotonic() + BRIEFING_INTERVAL_SECONDS
         time.sleep(1.0)
 

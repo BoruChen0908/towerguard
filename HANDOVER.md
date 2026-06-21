@@ -26,10 +26,10 @@ Build the dashboard components that consume **one JSON file**: `contracts/scenar
 - **Spec:** [WORK_KT.md](WORK_KT.md) — your components (N6–N16), the JSON-field map, and the design rules that drive the score.
 - **Interface:** the JSON contract (see §4 below for the block-by-block dictionary).
 
-### Job B — the two LLM agents → Live Validation panel (OLD)
-Finish [`agents/orchestrator.py`](agents/orchestrator.py) and [`agents/narrator.py`](agents/narrator.py). These **replace** the stand-in `fixtures/mock_katherine.py` and power the real-time advisory + handover briefing that becomes the embedded **Live Validation panel** in the new dashboard.
-- **Spec / interface:** [contact.md](contact.md) — the frozen Redis contract (topics, the module-event envelope, the advisory output schema, the briefing format, and the v1.2 lifecycle additions). Build to that schema and the two halves stay independent.
-- **Current state:** you've pushed first versions of both agents; until they're wired in, `mock_katherine` stands in.
+### Job B — the two LLM agents → Live Validation panel (OLD) — DONE (Option B)
+[`agents/orchestrator.py`](agents/orchestrator.py) and [`agents/narrator.py`](agents/narrator.py) now **augment** the deterministic engine rather than replace it: `fixtures/mock_katherine.py` + `fixtures/advisory_engine.py` still own every decision and the full v1.2 lifecycle, and the LLM only rewrites the human-facing text (advisory `summary`/`recommended_attention`; the relief-briefing prose). This powers the real-time advisory + handover briefing that becomes the embedded **Live Validation panel** in the dashboard. See §5 for the full wiring.
+- **Spec / interface:** [contact.md](contact.md) — the frozen Redis contract (topics, the module-event envelope, the advisory output schema, the briefing format, and the v1.2 lifecycle additions). The augmentation keeps this schema byte-for-byte; the two halves stay independent.
+- **Current state:** wired into the live path, off by default, template-fallback always (`TOWERGUARD_USE_LLM=1` + `ANTHROPIC_API_KEY` to enable; defaults to `claude-opus-4-8`). 304 tests green. Measured latency: advisory phrasing ~2.1 s median on Opus 4.8 (~1.2 s on Haiku 4.5); briefing ~3.4 s (background, 120 s cadence).
 
 ---
 
@@ -78,12 +78,16 @@ Finish [`agents/orchestrator.py`](agents/orchestrator.py) and [`agents/narrator.
 - `policy_brief` is **template-first** (every figure pulled live from the model); the optional LLM-rephrase layer is **deferred** (no API key) — render the template text as-is.
 - The JSON is **deterministic, offline** — there is no separate "live vs stub" version; the committed example IS the real output.
 
-**Live Validation (Job B's integration target) — modules done, agents are yours:**
+**Live Validation — modules + dashboard done; LLM agents wired in (Option B):**
 - `modules/` (traffic density, conflict geometry, workload index), `dashboard/` (FastAPI/SSE/Leaflet), Redis pub/sub — all built and running.
-- `fixtures/mock_katherine.py` currently stands in for your two agents; replace it with `agents/orchestrator.py` + `agents/narrator.py`.
+- The two LLM agents are now **wired into the live path** as an *augmentation* of the deterministic engine, not a replacement (Option B). The condition-driven `fixtures/advisory_engine.py` still owns every decision and guardrail (when/whether to issue, severity, dedup/cooldown, supersede/resolve, the human-override fields); the LLM only rewrites the human-facing **text**:
+  - [`agents/orchestrator.py`](agents/orchestrator.py) → `AdvisoryPhraser`: rewords an advisory's `summary` / `recommended_attention` from the same structured evidence (never decides escalation, never issues a directive, never invents data).
+  - [`agents/narrator.py`](agents/narrator.py) → `BriefingNarrator`: rewrites the deterministically-assembled relief briefing into fluent prose, adding no facts; falls back to the template if a required marker (draft disclaimer / confirmation line) is dropped.
+  - `fixtures/mock_katherine.py` builds both (when enabled) and threads them through the engine + briefing.
+- **Off by default, template-fallback always.** Augmentation runs only when `TOWERGUARD_USE_LLM=1` **and** `ANTHROPIC_API_KEY` are set (`config.llm_enabled()`); model defaults to `claude-opus-4-8` (`TOWERGUARD_LLM_MODEL` to override). Any failure — no key, network, bad JSON — degrades to the deterministic template, so the demo always runs fully offline. This makes the AI genuinely live in the dashboard while keeping the working contract + tests intact.
 - **Caveat (from PROGRESS.md):** the real-time path has only ever run in `DEMO_MODE` — live OpenSky has not been run end-to-end.
 
-**Tests:** 290 passing across both halves; `ruff check` clean. (The repo lints with `ruff check`; it is hand-formatted, not `ruff format`-enforced — match the surrounding style.)
+**Tests:** 304 passing across both halves (290 + 14 for the LLM augmentation layer); `ruff check` clean. (The repo lints with `ruff check`; it is hand-formatted, not `ruff format`-enforced — match the surrounding style.)
 
 ---
 

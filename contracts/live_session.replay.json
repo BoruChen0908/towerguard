@@ -1,0 +1,139 @@
+{
+  "meta": {
+    "kind": "recorded_real_session",
+    "source": "Real OpenSky live ADS-B feed \u2014 KJFK",
+    "captured_utc": "2026-06-20",
+    "airport": "KJFK",
+    "loop_seconds": 33,
+    "note": "Real captured session from live OpenSky traffic (89 real aircraft). Conflict geometry is a short-term alert: ICAO dual minima (<3 NM AND <1000 ft) projected 120s ahead on current track \u2014 a projected alert for human verification, not a confirmed separation loss. Playback timing is re-sequenced for a smooth loop; no values are fabricated."
+  },
+  "frames": [
+    {
+      "at": 0.0,
+      "event": "traffic_density",
+      "data": {
+        "event_type": "traffic_density",
+        "airport": "KJFK",
+        "tier": "HIGH",
+        "score": 0.7225,
+        "aircraft_count": 89
+      }
+    },
+    {
+      "at": 0.3,
+      "event": "conflict_geometry",
+      "data": {
+        "event_type": "conflict_geometry",
+        "airport": "KJFK",
+        "tier": "CRITICAL",
+        "pairs_checked": 1770,
+        "conflicts_detected": 10,
+        "closest_pair": {
+          "callsigns": [
+            "UPS5306",
+            "EDV5161"
+          ],
+          "projected_separation_nm": 0.18,
+          "icao_minimum_nm": 3.0,
+          "time_to_violation_seconds": 0
+        }
+      }
+    },
+    {
+      "at": 0.6,
+      "event": "workload_index",
+      "data": {
+        "event_type": "workload_index",
+        "airport": "KJFK",
+        "tier": "MEDIUM",
+        "score": 0.4338,
+        "staffed_controllers": 37,
+        "recommended_controllers": 52
+      }
+    },
+    {
+      "at": 2.0,
+      "event": "advisory",
+      "data": {
+        "advisory_id": "ADV-0007",
+        "timestamp": "2026-06-20T22:20:29Z",
+        "airport": "KJFK",
+        "action": "ESCALATE",
+        "severity": "CRITICAL",
+        "confidence": 0.9,
+        "confidence_band": "High",
+        "summary": "EDV5161/UPS5306 projected 0.18 NM vs 3.0 NM ICAO min, violation now; 89 aircraft, 37/52 controllers.",
+        "contributing_signals": [
+          "traffic_density",
+          "conflict_geometry",
+          "workload_index"
+        ],
+        "recommended_attention": "Critical separation loss between EDV5161/UPS5306 amid short-staffing (37/52) \u2014 immediate attention recommended.",
+        "human_override_required": true,
+        "confirmed_by_controller": false,
+        "generated_at": "2026-06-20T22:20:29Z",
+        "condition_key": "KJFK:workload+conflict:EDV5161/UPS5306",
+        "evidence": {
+          "signals": [
+            {
+              "event_type": "conflict_geometry",
+              "alert_id": "CG-0005",
+              "tier": "CRITICAL",
+              "key_values": {
+                "projected_separation_nm": 0.18,
+                "icao_minimum_nm": 3.0,
+                "time_to_violation_seconds": 0
+              },
+              "detail": "0.18 NM vs ICAO min 3.0 NM, first violation in 0 s."
+            },
+            {
+              "event_type": "traffic_density",
+              "alert_id": "TD-0005",
+              "tier": "HIGH",
+              "key_values": {
+                "aircraft_count": 89,
+                "score": 0.7225
+              },
+              "detail": "89 aircraft within 50 NM, density score 0.7225."
+            },
+            {
+              "event_type": "workload_index",
+              "alert_id": "WI-0004",
+              "tier": "MEDIUM",
+              "key_values": {
+                "staffed_controllers": 37,
+                "recommended_controllers": 52,
+                "score": 0.4338
+              },
+              "detail": "37/52 controllers on board (short 15), workload score 0.4338."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "at": 3.5,
+      "event": "briefing",
+      "data": {
+        "advisory_id": "BRF-0361",
+        "markdown": "## Position Relief Briefing \u2014 KJFK 2220Z\n*AI-generated draft. Outgoing controller must review and confirm.*\n\n### 1. Current traffic picture\n- Conflict geometry: CRITICAL\n- Workload index: MEDIUM\n- Traffic density: HIGH\n\n### 2. Active advisories\n- ADV-0002: DMO901/DMO902 projected 0.0 NM against the 3.0 NM ICAO minimum, violation in 10 s; sector short-staffed at 37/52.\n- ADV-0003: DAL2035/DAL836 projected 0.74 NM against the 3.0 NM ICAO minimum, violation now; 91 aircraft, 37/52 controllers.\n- ADV-0004: DAL1372/EDV4795 projected 0.02 NM against the 3.0 NM ICAO minimum, violation in 44 s; sector short-staffed at 37/52.\n- ADV-0005: DAL1919/SKW4623 projected 1.39 NM against the 3.0 NM ICAO minimum, violation now; 90 aircraft, 37/52 controllers.\n- ADV-0006: DAL1443/SKW4623 projected 0.01 NM against the 3.0 NM ICAO minimum, violation now; 88 aircraft, 37/52 controllers.\n- ADV-0007: EDV5161/UPS5306 projected 0.18 NM against the 3.0 NM ICAO minimum, violation now; 89 aircraft, 37/52 controllers.\n\n### 3. Notable events this shift\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Workload index LOW \u2192 MEDIUM\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Traffic density MEDIUM \u2192 HIGH\n\n### 4. Weather and NOTAMs\nVFR conditions, with no active NOTAMs affecting the field (demo).\n\n### 5. Pending actions\n- 6 advisory(ies) awaiting controller decision.\n\n---\n*Reviewed and confirmed by: ________________  [TIME]__________*"
+      }
+    },
+    {
+      "at": 14.0,
+      "event": "briefing",
+      "data": {
+        "advisory_id": "BRF-0362",
+        "markdown": "## Position Relief Briefing \u2014 KJFK 2223Z\n*AI-generated draft. Outgoing controller must review and confirm.*\n\n### 1. Current traffic picture\n- Conflict geometry: CRITICAL\n- Workload index: MEDIUM\n- Traffic density: HIGH\n\n### 2. Active advisories\n- ADV-0002: DMO901/DMO902 projected 0.0 NM against the 3.0 NM ICAO minimum; violation in 10 s. Sector short-staffed 37/52.\n- ADV-0003: DAL2035/DAL836 projected 0.74 NM against the 3.0 NM ICAO minimum; violation now. 91 aircraft, 37/52 controllers.\n- ADV-0004: DAL1372/EDV4795 projected 0.02 NM against the 3.0 NM ICAO minimum; violation in 44 s. Sector short-staffed 37/52.\n- ADV-0005: DAL1919/SKW4623 projected 1.39 NM against the 3.0 NM ICAO minimum; violation now. 90 aircraft, 37/52 controllers.\n- ADV-0006: DAL1443/SKW4623 projected 0.01 NM against the 3.0 NM ICAO minimum; violation now. 88 aircraft, 37/52 controllers.\n- ADV-0007: EDV5161/UPS5306 projected 0.18 NM against the 3.0 NM ICAO minimum; violation now. 89 aircraft, 37/52 controllers.\n- ADV-0008: DAL315/DAL821 projected 0.74 NM against the 3.0 NM ICAO minimum; violation now. 92 aircraft, 37/52 controllers.\n- ADV-0009: EDV4795/FFT1447 projected 0.16 NM against the 3.0 NM ICAO minimum; violation now. 91 aircraft, 37/52 controllers.\n\n### 3. Notable events this shift\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Workload index LOW \u2192 MEDIUM\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Traffic density MEDIUM \u2192 HIGH\n\n### 4. Weather and NOTAMs\nVFR conditions. No active NOTAMs affecting the field (demo).\n\n### 5. Pending actions\n- 8 advisory(ies) awaiting controller decision.\n\n---\n*Reviewed and confirmed by: ________________  [TIME]__________*"
+      }
+    },
+    {
+      "at": 24.0,
+      "event": "briefing",
+      "data": {
+        "advisory_id": "BRF-0361",
+        "markdown": "## Position Relief Briefing \u2014 KJFK 2220Z\n*AI-generated draft. Outgoing controller must review and confirm.*\n\n### 1. Current traffic picture\n- Conflict geometry: CRITICAL\n- Workload index: MEDIUM\n- Traffic density: HIGH\n\n### 2. Active advisories\n- ADV-0002: DMO901/DMO902 projected 0.0 NM against the 3.0 NM ICAO minimum, violation in 10 s; sector short-staffed at 37/52.\n- ADV-0003: DAL2035/DAL836 projected 0.74 NM against the 3.0 NM ICAO minimum, violation now; 91 aircraft, 37/52 controllers.\n- ADV-0004: DAL1372/EDV4795 projected 0.02 NM against the 3.0 NM ICAO minimum, violation in 44 s; sector short-staffed at 37/52.\n- ADV-0005: DAL1919/SKW4623 projected 1.39 NM against the 3.0 NM ICAO minimum, violation now; 90 aircraft, 37/52 controllers.\n- ADV-0006: DAL1443/SKW4623 projected 0.01 NM against the 3.0 NM ICAO minimum, violation now; 88 aircraft, 37/52 controllers.\n- ADV-0007: EDV5161/UPS5306 projected 0.18 NM against the 3.0 NM ICAO minimum, violation now; 89 aircraft, 37/52 controllers.\n\n### 3. Notable events this shift\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Workload index LOW \u2192 MEDIUM\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Conflict geometry CRITICAL \u2192 HIGH (DMO901/DMO902)\n- Conflict geometry HIGH \u2192 CRITICAL (DMO901/DMO902)\n- Traffic density MEDIUM \u2192 HIGH\n\n### 4. Weather and NOTAMs\nVFR conditions, with no active NOTAMs affecting the field (demo).\n\n### 5. Pending actions\n- 6 advisory(ies) awaiting controller decision.\n\n---\n*Reviewed and confirmed by: ________________  [TIME]__________*"
+      }
+    }
+  ]
+}
