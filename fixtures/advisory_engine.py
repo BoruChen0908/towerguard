@@ -105,10 +105,16 @@ class AdvisoryEngine:
         redis_client: redis.Redis,
         airport: str,
         clock: Callable[[], float] = time.monotonic,
+        phraser: Optional[Any] = None,
     ) -> None:
         self._redis = redis_client
         self._airport = airport
         self._clock = clock
+        # Optional LLM phraser (agents.orchestrator.AdvisoryPhraser). When None,
+        # the deterministic template text is used verbatim. The phraser only
+        # rewords summary/recommended_attention — it never changes the decision,
+        # severity, lifecycle, or any guardrail field.
+        self._phraser = phraser
         self._lock = threading.Lock()
         # topic -> latest module event seen on the wire.
         self._latest: dict[str, Optional[dict[str, Any]]] = {
@@ -206,6 +212,37 @@ class AdvisoryEngine:
             logger.error(
                 "Could not SET advisory state %s=%s: %s", advisory_id, state, exc
             )
+
+    def _maybe_phrase(
+        self,
+        *,
+        action: str,
+        severity: str,
+        callsigns: list[str],
+        evidence: dict[str, Any],
+        fallback_summary: str,
+        fallback_attention: str,
+    ) -> tuple[str, str]:
+        """Optionally reword summary/recommended_attention via the LLM phraser.
+
+        Returns the deterministic fallback unchanged when no phraser is wired or
+        the phraser itself errors — the decision and every other field are never
+        affected, so this is purely cosmetic on the human-facing text.
+        """
+        if self._phraser is None:
+            return fallback_summary, fallback_attention
+        try:
+            return self._phraser.phrase(
+                action=action,
+                severity=severity,
+                callsigns=callsigns,
+                evidence=evidence,
+                fallback_summary=fallback_summary,
+                fallback_attention=fallback_attention,
+            )
+        except Exception as exc:  # pragma: no cover - defensive; phraser self-guards
+            logger.warning("phraser failed, using template text: %s", exc)
+            return fallback_summary, fallback_attention
 
     def _supersede_prior(self, prior: _Issued, by_advisory_id: str) -> None:
         """Retire a prior card: state=superseded, XADD supersede, lifecycle event."""
@@ -316,6 +353,16 @@ class AdvisoryEngine:
         if prior is not None and _tier_rank(severity) > _tier_rank(prior.tier):
             supersedes = [prior.advisory_id]
 
+        evidence = ab.build_evidence(td, cg, wi)
+        summary, recommended_attention = self._maybe_phrase(
+            action=action,
+            severity=severity,
+            callsigns=callsigns,
+            evidence=evidence,
+            fallback_summary=summary,
+            fallback_attention=recommended_attention,
+        )
+
         advisory = ab.build_advisory(
             advisory_id=advisory_id,
             airport=self._airport,
@@ -324,7 +371,7 @@ class AdvisoryEngine:
             summary=summary,
             recommended_attention=recommended_attention,
             condition_key=key,
-            evidence=ab.build_evidence(td, cg, wi),
+            evidence=evidence,
             contributing_signals=[
                 "traffic_density",
                 "conflict_geometry",
@@ -453,17 +500,26 @@ class AdvisoryEngine:
         pair = "/".join(callsigns)
         sep = (cg.get("closest_pair") or {}).get("projected_separation_nm")
         ttv = (cg.get("closest_pair") or {}).get("time_to_violation_seconds")
+        evidence = ab.build_evidence(td, cg, wi)
+        summary, recommended_attention = self._maybe_phrase(
+            action="ESCALATE",
+            severity=tier,
+            callsigns=callsigns,
+            evidence=evidence,
+            fallback_summary=f"Re-assessed: {pair} conflict persists ({tier}).",
+            fallback_attention=(
+                f"{pair} still closing to {sep} NM in {ttv} s after re-assess."
+            ),
+        )
         advisory = ab.build_advisory(
             advisory_id=advisory_id,
             airport=self._airport,
             action="ESCALATE",
             severity=tier,
-            summary=f"Re-assessed: {pair} conflict persists ({tier}).",
-            recommended_attention=(
-                f"{pair} still closing to {sep} NM in {ttv} s after re-assess."
-            ),
+            summary=summary,
+            recommended_attention=recommended_attention,
             condition_key=key,
-            evidence=ab.build_evidence(td, cg, wi),
+            evidence=evidence,
             contributing_signals=[
                 "traffic_density",
                 "conflict_geometry",
